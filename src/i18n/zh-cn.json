@@ -1,0 +1,10 @@
+{
+  "sidebar.projects": "项目",
+  "sidebar.noProjects": "暂无项目",
+  "sidebar.addProject": "添加项目…",
+  "sidebar.removeProject": "移除项目",
+  "sidebar.stale": "路径已不存在",
+  "scope.user": "用户",
+  "app.noScopeSelected": "未选择 Scope",
+  "dialog.addProjectTitle": "添加项目"
+}

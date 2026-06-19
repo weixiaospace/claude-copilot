@@ -9,6 +9,8 @@ pub fn run() {
             commands::scopes::list_scopes,
             commands::scopes::add_project,
             commands::scopes::remove_manual_project,
+            commands::ui::get_locale,
+            commands::ui::set_locale,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

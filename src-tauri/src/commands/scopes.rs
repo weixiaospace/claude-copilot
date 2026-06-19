@@ -1,13 +1,10 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use claude_copilot_core::projects::{self, ManualProject};
 use claude_copilot_core::scopes::Scope;
 
+use super::home_dir;
 use crate::state;
-
-fn home_dir() -> Result<PathBuf, String> {
-    dirs::home_dir().ok_or_else(|| "could not resolve the home directory".to_string())
-}
 
 /// Build the full sidebar: the User scope followed by the deduped, labelled
 /// project scopes (Claude-known ∪ manually-added).
