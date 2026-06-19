@@ -4,6 +4,8 @@ import type { Scope } from "../types/Scope";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { FileResource } from "../types/FileResource";
 import type { HookEntry } from "../types/HookEntry";
+import type { McpServer } from "../types/McpServer";
+import type { McpSource } from "../types/McpSource";
 import type { MemoryInfo } from "../types/MemoryInfo";
 
 /**
@@ -32,6 +34,12 @@ export interface Commands {
   write_file: { args: { path: string; content: string }; result: void };
   open_in_editor: { args: { path: string }; result: void };
   list_hooks: { args: { scope: ScopeRef }; result: HookEntry[] };
+  list_mcp: { args: { scope: ScopeRef }; result: McpServer[] };
+  add_mcp: {
+    args: { scope: ScopeRef; name: string; transport: string; target: string };
+    result: void;
+  };
+  remove_mcp: { args: { scope: ScopeRef; name: string; source: McpSource }; result: void };
   memory_info: { args: { projectId: string }; result: MemoryInfo };
   list_memories: { args: { projectId: string }; result: FileResource[] };
   create_memory: { args: { projectId: string; name: string }; result: FileResource };

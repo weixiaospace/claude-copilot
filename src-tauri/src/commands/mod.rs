@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 pub mod files;
 pub mod hooks;
+pub mod mcp;
 pub mod memory;
 pub mod resources;
 pub mod scopes;
