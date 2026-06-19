@@ -11,6 +11,7 @@
   "resource.agents": "Agents",
   "resource.workflows": "Workflows",
   "resource.rules": "Rules",
+  "resource.outputStyles": "Output Styles",
   "resource.memory": "Memory",
   "resource.refresh": "Refresh",
   "resource.create": "Create",
@@ -41,5 +42,7 @@
   "memory.empty": "No memory files yet",
   "memory.location": "Location",
   "memory.overridden": "Overridden by autoMemoryDirectory; default",
-  "memory.confirmDelete": "Delete this memory file? This cannot be undone."
+  "memory.confirmDelete": "Delete this memory file? This cannot be undone.",
+  "outputStyle.active": "Active",
+  "outputStyle.setActive": "Set active"
 }

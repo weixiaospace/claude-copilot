@@ -11,6 +11,7 @@
   "resource.agents": "子代理",
   "resource.workflows": "工作流",
   "resource.rules": "规则",
+  "resource.outputStyles": "输出样式",
   "resource.memory": "记忆",
   "resource.refresh": "刷新",
   "resource.create": "创建",
@@ -41,5 +42,7 @@
   "memory.empty": "暂无记忆文件",
   "memory.location": "位置",
   "memory.overridden": "已被 autoMemoryDirectory 覆盖；默认",
-  "memory.confirmDelete": "删除此记忆文件？此操作不可撤销。"
+  "memory.confirmDelete": "删除此记忆文件？此操作不可撤销。",
+  "outputStyle.active": "当前生效",
+  "outputStyle.setActive": "设为生效"
 }

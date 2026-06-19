@@ -30,6 +30,10 @@ export interface Commands {
   create_rule: { args: { scope: ScopeRef; name: string }; result: FileResource };
   list_workflows: { args: { scope: ScopeRef }; result: FileResource[] };
   delete_resource: { args: { path: string }; result: void };
+  list_output_styles: { args: { scope: ScopeRef }; result: FileResource[] };
+  create_output_style: { args: { scope: ScopeRef; name: string }; result: FileResource };
+  get_active_output_style: { args: { scope: ScopeRef }; result: string | null };
+  set_active_output_style: { args: { scope: ScopeRef; name: string }; result: void };
   read_file: { args: { path: string }; result: string };
   write_file: { args: { path: string; content: string }; result: void };
   open_in_editor: { args: { path: string }; result: void };
