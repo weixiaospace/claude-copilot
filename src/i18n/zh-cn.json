@@ -8,13 +8,16 @@
   "app.noScopeSelected": "未选择 Scope",
   "dialog.addProjectTitle": "添加项目",
   "resource.skills": "技能",
+  "resource.agents": "子代理",
+  "resource.workflows": "工作流",
+  "resource.rules": "规则",
   "resource.refresh": "刷新",
   "resource.create": "创建",
-  "resource.namePlaceholder": "新技能名称",
+  "resource.namePlaceholder": "名称…",
   "resource.empty": "暂无内容",
   "detail.openInEditor": "在编辑器中打开",
   "detail.quickEdit": "快速编辑",
   "detail.save": "保存",
   "detail.delete": "删除",
-  "detail.confirmDelete": "删除此技能？此操作不可撤销。"
+  "detail.confirmDelete": "删除此项？此操作不可撤销。"
 }
