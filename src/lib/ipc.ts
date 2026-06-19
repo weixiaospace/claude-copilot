@@ -1,6 +1,8 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { listen as tauriListen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { Scope } from "../types/Scope";
+import type { ScopeRef } from "../types/ScopeRef";
+import type { FileResource } from "../types/FileResource";
 
 /**
  * Typed map of every IPC command: its argument shape and result.
@@ -15,6 +17,12 @@ export interface Commands {
   remove_manual_project: { args: { id: string }; result: Scope[] };
   get_locale: { args: void; result: string | null };
   set_locale: { args: { locale: string }; result: void };
+  list_skills: { args: { scope: ScopeRef }; result: FileResource[] };
+  create_skill: { args: { scope: ScopeRef; name: string }; result: FileResource };
+  delete_skill: { args: { path: string }; result: void };
+  read_file: { args: { path: string }; result: string };
+  write_file: { args: { path: string; content: string }; result: void };
+  open_in_editor: { args: { path: string }; result: void };
 }
 
 export function invoke<K extends keyof Commands>(

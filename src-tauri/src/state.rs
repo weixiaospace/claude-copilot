@@ -17,6 +17,10 @@ use claude_copilot_core::projects::ManualProject;
 pub struct State {
     #[serde(default)]
     pub manual_projects: Vec<ManualProject>,
+    /// Paths the user granted access to via the native permission prompt
+    /// (layer 3 of the fs permission model). Canonicalized.
+    #[serde(default)]
+    pub granted_paths: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ui: Option<Value>,
 }
