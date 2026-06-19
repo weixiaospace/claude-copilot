@@ -4,6 +4,7 @@ pub mod files;
 pub mod hooks;
 pub mod mcp;
 pub mod memory;
+pub mod plugins;
 pub mod resources;
 pub mod scopes;
 pub mod ui;

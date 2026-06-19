@@ -15,11 +15,14 @@ export function ResourceDetail({
   onClose,
   onChanged,
   onDelete,
+  readOnly = false,
 }: {
   resource: FileResource | null;
   onClose: () => void;
   onChanged?: () => void;
   onDelete?: (resource: FileResource) => void;
+  /** Preview + open-in-editor only; no quick-edit or delete (e.g. plugin-shipped). */
+  readOnly?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [content, setContent] = useState("");
@@ -89,15 +92,16 @@ export function ResourceDetail({
             <Button onClick={() => void invoke("open_in_editor", { path: resource.path })}>
               {t("detail.openInEditor")}
             </Button>
-            {editing ? (
-              <Button onClick={() => void save()}>{t("detail.save")}</Button>
-            ) : (
-              <Button variant="ghost" onClick={() => setEditing(true)}>
-                {t("detail.quickEdit")}
-              </Button>
-            )}
+            {!readOnly &&
+              (editing ? (
+                <Button onClick={() => void save()}>{t("detail.save")}</Button>
+              ) : (
+                <Button variant="ghost" onClick={() => setEditing(true)}>
+                  {t("detail.quickEdit")}
+                </Button>
+              ))}
             <div class="flex-1" />
-            {onDelete && (
+            {!readOnly && onDelete && (
               <Button variant="ghost" class="text-red-500" onClick={() => onDelete(resource)}>
                 {t("detail.delete")}
               </Button>

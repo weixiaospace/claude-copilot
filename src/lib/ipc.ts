@@ -7,6 +7,10 @@ import type { HookEntry } from "../types/HookEntry";
 import type { McpServer } from "../types/McpServer";
 import type { McpSource } from "../types/McpSource";
 import type { MemoryInfo } from "../types/MemoryInfo";
+import type { InstalledPlugin } from "../types/InstalledPlugin";
+import type { Marketplace } from "../types/Marketplace";
+import type { AvailablePlugin } from "../types/AvailablePlugin";
+import type { BundledResource } from "../types/BundledResource";
 
 /**
  * Typed map of every IPC command: its argument shape and result.
@@ -48,6 +52,16 @@ export interface Commands {
   list_memories: { args: { projectId: string }; result: FileResource[] };
   create_memory: { args: { projectId: string; name: string }; result: FileResource };
   delete_memory: { args: { projectId: string; path: string }; result: void };
+  list_plugins: { args: void; result: InstalledPlugin[] };
+  list_marketplaces: { args: void; result: Marketplace[] };
+  list_available_plugins: { args: void; result: AvailablePlugin[] };
+  list_bundled_resources: { args: { installPath: string }; result: BundledResource[] };
+  install_plugin: { args: { name: string }; result: void };
+  uninstall_plugin: { args: { name: string }; result: void };
+  toggle_plugin: { args: { name: string; enable: boolean }; result: void };
+  add_marketplace: { args: { source: string }; result: void };
+  remove_marketplace: { args: { name: string }; result: void };
+  update_marketplace: { args: { name: string | null }; result: void };
 }
 
 export function invoke<K extends keyof Commands>(

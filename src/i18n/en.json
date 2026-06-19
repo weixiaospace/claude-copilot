@@ -44,5 +44,20 @@
   "memory.overridden": "Overridden by autoMemoryDirectory; default",
   "memory.confirmDelete": "Delete this memory file? This cannot be undone.",
   "outputStyle.active": "Active",
-  "outputStyle.setActive": "Set active"
+  "outputStyle.setActive": "Set active",
+  "plugins.title": "Plugins",
+  "plugins.marketplaces": "Marketplaces",
+  "plugins.addMarketplacePlaceholder": "marketplace source (owner/repo or URL)",
+  "plugins.add": "Add",
+  "plugins.update": "Update",
+  "plugins.installed": "Installed",
+  "plugins.empty": "No plugins installed",
+  "plugins.disabled": "disabled",
+  "plugins.enable": "Enable",
+  "plugins.disable": "Disable",
+  "plugins.uninstall": "Uninstall",
+  "plugins.confirmUninstall": "Uninstall this plugin?",
+  "plugins.noBundled": "No bundled resources",
+  "plugins.available": "Available",
+  "plugins.install": "Install"
 }
