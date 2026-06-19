@@ -1,9 +1,11 @@
+import { useState } from "preact/hooks";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "../lib/ipc";
 import { reloadScopes, scopes, scopesError, selectedScopeId } from "../lib/signals";
 import { t } from "../lib/i18n";
 import type { Scope } from "../types/Scope";
 import { Button } from "./ui/button";
+import { ProvidersDialog } from "./ProvidersDialog";
 
 async function addProject() {
   const dir = await open({
@@ -67,9 +69,19 @@ export function ScopeSidebar() {
   const all = scopes.value;
   const user = all.find((s) => s.kind === "user");
   const projects = all.filter((s) => s.kind === "project");
+  const [showProviders, setShowProviders] = useState(false);
 
   return (
     <aside class="flex h-full w-60 shrink-0 flex-col gap-1 border-r border-neutral-200 p-2 dark:border-neutral-800">
+      <button
+        class="mb-1 inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        onClick={() => setShowProviders(true)}
+      >
+        <span>🔑</span>
+        <span class="truncate">{t("providers.title")}</span>
+      </button>
+      <div class="mb-1 border-b border-neutral-200 dark:border-neutral-800" />
+
       {user && <ScopeRow scope={user} />}
 
       <div class="px-3 pt-3 pb-1 text-xs font-medium uppercase tracking-wide text-neutral-400">
@@ -93,6 +105,8 @@ export function ScopeSidebar() {
           ➕ {t("sidebar.addProject")}
         </Button>
       </div>
+
+      <ProvidersDialog open={showProviders} onClose={() => setShowProviders(false)} />
     </aside>
   );
 }

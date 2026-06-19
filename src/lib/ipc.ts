@@ -11,6 +11,8 @@ import type { InstalledPlugin } from "../types/InstalledPlugin";
 import type { Marketplace } from "../types/Marketplace";
 import type { AvailablePlugin } from "../types/AvailablePlugin";
 import type { BundledResource } from "../types/BundledResource";
+import type { Profile } from "../types/Profile";
+import type { ProfileInput } from "../types/ProfileInput";
 
 /**
  * Typed map of every IPC command: its argument shape and result.
@@ -62,6 +64,13 @@ export interface Commands {
   add_marketplace: { args: { source: string }; result: void };
   remove_marketplace: { args: { name: string }; result: void };
   update_marketplace: { args: { name: string | null }; result: void };
+  list_profiles: { args: void; result: Profile[] };
+  create_profile: { args: { input: ProfileInput; secret: string | null }; result: Profile };
+  update_profile: {
+    args: { id: string; input: ProfileInput; secret: string | null };
+    result: Profile;
+  };
+  delete_profile: { args: { id: string }; result: void };
 }
 
 export function invoke<K extends keyof Commands>(

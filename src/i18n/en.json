@@ -59,5 +59,18 @@
   "plugins.confirmUninstall": "Uninstall this plugin?",
   "plugins.noBundled": "No bundled resources",
   "plugins.available": "Available",
-  "plugins.install": "Install"
+  "plugins.install": "Install",
+  "providers.title": "Providers",
+  "providers.new": "New profile",
+  "providers.edit": "Edit",
+  "providers.name": "Name",
+  "providers.kind": "Provider",
+  "providers.authMode": "Auth mode",
+  "providers.baseUrl": "Base URL",
+  "providers.secret": "Secret",
+  "providers.secretKeep": "leave blank to keep current",
+  "providers.cancel": "Cancel",
+  "providers.empty": "No profiles yet",
+  "providers.confirmDelete": "Delete this profile and its stored secret?",
+  "providers.credentialMissing": "credential missing"
 }
