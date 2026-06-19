@@ -7,13 +7,14 @@ import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
 import { ResourcePanel } from "./ResourcePanel";
 import { HooksPanel } from "./HooksPanel";
+import { McpPanel } from "./McpPanel";
 import { MemoryPanel } from "./MemoryPanel";
 
 function toScopeRef(scope: Scope): ScopeRef {
   return scope.kind === "user" ? { kind: "user" } : { kind: "project", id: scope.id };
 }
 
-type TabKey = "skills" | "agents" | "workflows" | "rules" | "hooks" | "memory";
+type TabKey = "skills" | "agents" | "workflows" | "rules" | "hooks" | "mcp" | "memory";
 type ResourceTabKey = "skills" | "agents" | "workflows" | "rules";
 
 const BASE_TABS: { key: TabKey; label: string }[] = [
@@ -22,6 +23,7 @@ const BASE_TABS: { key: TabKey; label: string }[] = [
   { key: "workflows", label: "resource.workflows" },
   { key: "rules", label: "resource.rules" },
   { key: "hooks", label: "hooks.title" },
+  { key: "mcp", label: "mcp.title" },
 ];
 
 interface PanelProps {
@@ -117,6 +119,8 @@ export function ResourceArea({ scope }: { scope: Scope }) {
           <MemoryPanel key={`${scope.id}:memory`} projectId={scope.id} />
         ) : tab === "hooks" ? (
           <HooksPanel key={`${scope.id}:hooks`} scope={ref} />
+        ) : tab === "mcp" ? (
+          <McpPanel key={`${scope.id}:mcp`} scope={ref} />
         ) : (
           <ResourcePanel
             key={`${scope.id}:${tab}`}
