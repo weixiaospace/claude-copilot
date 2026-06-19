@@ -11,6 +11,8 @@ import type { Scope } from "../types/Scope";
  */
 export interface Commands {
   list_scopes: { args: void; result: Scope[] };
+  add_project: { args: { path: string }; result: Scope[] };
+  remove_manual_project: { args: { id: string }; result: Scope[] };
 }
 
 export function invoke<K extends keyof Commands>(
