@@ -1,0 +1,4 @@
+# pnpm settings (pnpm 10+ reads the build-script allowlist from here, not
+# package.json). This is not a JS monorepo — the only package is the repo root.
+allowBuilds:
+  esbuild: true
