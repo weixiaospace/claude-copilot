@@ -36,6 +36,16 @@ pub fn run() {
             commands::memory::list_memories,
             commands::memory::create_memory,
             commands::memory::delete_memory,
+            commands::plugins::list_plugins,
+            commands::plugins::list_marketplaces,
+            commands::plugins::list_available_plugins,
+            commands::plugins::list_bundled_resources,
+            commands::plugins::install_plugin,
+            commands::plugins::uninstall_plugin,
+            commands::plugins::toggle_plugin,
+            commands::plugins::add_marketplace,
+            commands::plugins::remove_marketplace,
+            commands::plugins::update_marketplace,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

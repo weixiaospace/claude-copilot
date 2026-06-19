@@ -16,6 +16,7 @@ interface ButtonProps extends Omit<JSX.HTMLAttributes<HTMLButtonElement>, "class
   variant?: Variant;
   /** Extra classes merged after the variant's. */
   class?: string;
+  disabled?: boolean;
   children?: ComponentChildren;
 }
 

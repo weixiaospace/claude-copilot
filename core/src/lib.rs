@@ -9,5 +9,6 @@ pub mod frontmatter;
 pub mod hooks;
 pub mod mcp;
 pub mod memory;
+pub mod plugins;
 pub mod projects;
 pub mod scopes;

@@ -10,6 +10,7 @@ import { HooksPanel } from "./HooksPanel";
 import { McpPanel } from "./McpPanel";
 import { MemoryPanel } from "./MemoryPanel";
 import { OutputStylesPanel } from "./OutputStylesPanel";
+import { PluginsPanel } from "./PluginsPanel";
 
 function toScopeRef(scope: Scope): ScopeRef {
   return scope.kind === "user" ? { kind: "user" } : { kind: "project", id: scope.id };
@@ -23,7 +24,8 @@ type TabKey =
   | "output_styles"
   | "hooks"
   | "mcp"
-  | "memory";
+  | "memory"
+  | "plugins";
 type ResourceTabKey = "skills" | "agents" | "workflows" | "rules";
 
 const BASE_TABS: { key: TabKey; label: string }[] = [
@@ -95,15 +97,15 @@ function panelProps(tab: ResourceTabKey, scope: ScopeRef): PanelProps {
 
 /**
  * The main area for a selected scope: resource tabs + the active panel. Tabs
- * available depend on the scope (Memory is project-only). Remounted per scope
- * (keyed in App), so the active tab resets when the scope changes.
+ * depend on the scope (Memory is project-only; Plugins is user-only). Remounted
+ * per scope (keyed in App), so the active tab resets when the scope changes.
  */
 export function ResourceArea({ scope }: { scope: Scope }) {
   const ref = toScopeRef(scope);
   const tabs =
     scope.kind === "project"
       ? [...BASE_TABS, { key: "memory" as TabKey, label: "resource.memory" }]
-      : BASE_TABS;
+      : [...BASE_TABS, { key: "plugins" as TabKey, label: "plugins.title" }];
   const [tab, setTab] = useState<TabKey>("skills");
 
   return (
@@ -129,6 +131,8 @@ export function ResourceArea({ scope }: { scope: Scope }) {
           <MemoryPanel key={`${scope.id}:memory`} projectId={scope.id} />
         ) : tab === "output_styles" ? (
           <OutputStylesPanel key={`${scope.id}:output_styles`} scope={ref} />
+        ) : tab === "plugins" ? (
+          <PluginsPanel key="plugins" />
         ) : tab === "hooks" ? (
           <HooksPanel key={`${scope.id}:hooks`} scope={ref} />
         ) : tab === "mcp" ? (
