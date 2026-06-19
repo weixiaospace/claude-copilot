@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 pub mod files;
+pub mod hooks;
 pub mod resources;
 pub mod scopes;
 pub mod ui;

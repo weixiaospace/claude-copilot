@@ -3,6 +3,7 @@ import { listen as tauriListen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { Scope } from "../types/Scope";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { FileResource } from "../types/FileResource";
+import type { HookEntry } from "../types/HookEntry";
 
 /**
  * Typed map of every IPC command: its argument shape and result.
@@ -29,6 +30,7 @@ export interface Commands {
   read_file: { args: { path: string }; result: string };
   write_file: { args: { path: string; content: string }; result: void };
   open_in_editor: { args: { path: string }; result: void };
+  list_hooks: { args: { scope: ScopeRef }; result: HookEntry[] };
 }
 
 export function invoke<K extends keyof Commands>(
