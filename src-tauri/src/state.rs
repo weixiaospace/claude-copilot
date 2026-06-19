@@ -44,6 +44,30 @@ pub fn save(home: &Path, state: &State) -> Result<(), String> {
     fs::write(&path, text + "\n").map_err(|e| format!("failed to write {}: {e}", path.display()))
 }
 
+/// Read `ui.locale`, or `None` if unset.
+pub fn get_locale(home: &Path) -> Result<Option<String>, String> {
+    let st = load(home)?;
+    Ok(st
+        .ui
+        .as_ref()
+        .and_then(|ui| ui.get("locale"))
+        .and_then(Value::as_str)
+        .map(String::from))
+}
+
+/// Set `ui.locale`, preserving any other `ui` fields.
+pub fn set_locale(home: &Path, locale: &str) -> Result<(), String> {
+    let mut st = load(home)?;
+    let ui = st.ui.get_or_insert_with(|| Value::Object(Default::default()));
+    match ui.as_object_mut() {
+        Some(obj) => {
+            obj.insert("locale".to_string(), Value::String(locale.to_string()));
+        }
+        None => return Err("state.json#ui is not an object".to_string()),
+    }
+    save(home, &st)
+}
+
 /// Absolute project paths Claude Code already tracks: the keys of
 /// `~/.claude.json#projects`. We never reverse-decode the lossy slug dirs.
 pub fn claude_known_paths(home: &Path) -> Vec<String> {
@@ -116,4 +140,31 @@ fn first_cwd_in_file(path: &Path) -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn locale_roundtrips_and_preserves_other_ui_fields() {
+        let home = std::env::temp_dir().join(format!("cc-state-test-{}", std::process::id()));
+        let dir = home.join(".claude").join("claude-copilot");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("state.json"),
+            r#"{"manual_projects":[],"ui":{"theme":"dark"}}"#,
+        )
+        .unwrap();
+
+        assert_eq!(get_locale(&home).unwrap(), None);
+        set_locale(&home, "en").unwrap();
+        assert_eq!(get_locale(&home).unwrap(), Some("en".to_string()));
+
+        // An unrelated ui field must survive the locale write.
+        let ui = load(&home).unwrap().ui.unwrap();
+        assert_eq!(ui.get("theme").and_then(Value::as_str), Some("dark"));
+
+        std::fs::remove_dir_all(&home).ok();
+    }
 }

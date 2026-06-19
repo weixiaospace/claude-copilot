@@ -27,9 +27,9 @@ main:
             git diff --exit-code src/types
         - name: frontend build
           script: pnpm build
-        - name: workspace build
+        - name: workspace build + tests
           script: |
             . "$HOME/.cargo/env"
-            cargo build --workspace
+            cargo test --workspace
   pull_request:
     - *ci

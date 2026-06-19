@@ -13,6 +13,8 @@ export interface Commands {
   list_scopes: { args: void; result: Scope[] };
   add_project: { args: { path: string }; result: Scope[] };
   remove_manual_project: { args: { id: string }; result: Scope[] };
+  get_locale: { args: void; result: string | null };
+  set_locale: { args: { locale: string }; result: void };
 }
 
 export function invoke<K extends keyof Commands>(

@@ -1,0 +1,10 @@
+{
+  "sidebar.projects": "Projects",
+  "sidebar.noProjects": "No projects yet",
+  "sidebar.addProject": "Add Project…",
+  "sidebar.removeProject": "Remove project",
+  "sidebar.stale": "Path no longer exists",
+  "scope.user": "User",
+  "app.noScopeSelected": "No scope selected",
+  "dialog.addProjectTitle": "Add Project"
+}
