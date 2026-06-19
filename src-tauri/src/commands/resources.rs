@@ -6,6 +6,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use serde_json::Value;
+
 use claude_copilot_core::file_resource::{self, FileResource};
 use claude_copilot_core::scopes::ScopeRef;
 
@@ -30,6 +32,7 @@ const SKILLS: Kind = Kind { dir: "skills", discovery: Discovery::SubdirFile("SKI
 const AGENTS: Kind = Kind { dir: "agents", discovery: Discovery::MarkdownRecursive };
 const RULES: Kind = Kind { dir: "rules", discovery: Discovery::MarkdownRecursive };
 const WORKFLOWS: Kind = Kind { dir: "workflows", discovery: Discovery::JsFlat };
+const OUTPUT_STYLES: Kind = Kind { dir: "output-styles", discovery: Discovery::MarkdownRecursive };
 
 fn root(scope: &ScopeRef, home: &Path, dir: &str) -> PathBuf {
     match scope {
@@ -221,9 +224,119 @@ pub fn delete_resource(path: String) -> Result<(), String> {
     fs::remove_file(p).map_err(|e| format!("failed to delete: {e}"))
 }
 
+// ── Output Styles (recursive markdown + active selection) ───────────────────
+
+#[tauri::command]
+pub fn list_output_styles(scope: ScopeRef) -> Result<Vec<FileResource>, String> {
+    list(scope, &OUTPUT_STYLES)
+}
+
+#[tauri::command]
+pub fn create_output_style(scope: ScopeRef, name: String) -> Result<FileResource, String> {
+    create_markdown(scope, &OUTPUT_STYLES, &name)
+}
+
+/// The settings file holding the active `outputStyle` for a scope. User →
+/// `~/.claude/settings.json`; Project → its `settings.local.json` (personal,
+/// not committed) when `local`, else its committed `settings.json`.
+fn settings_file(scope: &ScopeRef, home: &Path, local: bool) -> PathBuf {
+    match scope {
+        ScopeRef::User => home.join(".claude").join("settings.json"),
+        ScopeRef::Project { id } => {
+            let name = if local { "settings.local.json" } else { "settings.json" };
+            Path::new(id).join(".claude").join(name)
+        }
+    }
+}
+
+fn read_string_key(path: &Path, key: &str) -> Option<String> {
+    let text = fs::read_to_string(path).ok()?;
+    let value: Value = serde_json::from_str(&text).ok()?;
+    value.get(key).and_then(Value::as_str).map(String::from)
+}
+
+fn write_string_key(path: &Path, key: &str, value: &str) -> Result<(), String> {
+    let mut doc: Value = match fs::read_to_string(path) {
+        Ok(text) => {
+            serde_json::from_str(&text).map_err(|e| format!("parse {}: {e}", path.display()))?
+        }
+        Err(_) => Value::Object(Default::default()),
+    };
+    if !doc.is_object() {
+        doc = Value::Object(Default::default());
+    }
+    doc.as_object_mut()
+        .unwrap()
+        .insert(key.to_string(), Value::String(value.to_string()));
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("failed to create dir: {e}"))?;
+    }
+    let text = serde_json::to_string_pretty(&doc).map_err(|e| format!("serialize: {e}"))?;
+    fs::write(path, text + "\n").map_err(|e| format!("write {}: {e}", path.display()))
+}
+
+/// Effective active output style for a scope: local > project > user.
+#[tauri::command]
+pub fn get_active_output_style(scope: ScopeRef) -> Result<Option<String>, String> {
+    let home = home_dir()?;
+    if let ScopeRef::Project { .. } = scope {
+        if let Some(v) = read_string_key(&settings_file(&scope, &home, true), "outputStyle") {
+            return Ok(Some(v));
+        }
+        if let Some(v) = read_string_key(&settings_file(&scope, &home, false), "outputStyle") {
+            return Ok(Some(v));
+        }
+        return Ok(read_string_key(
+            &home.join(".claude").join("settings.json"),
+            "outputStyle",
+        ));
+    }
+    Ok(read_string_key(&settings_file(&scope, &home, false), "outputStyle"))
+}
+
+/// Set the active output style. User → `settings.json`; Project → its personal
+/// `settings.local.json` (never the committed `settings.json`).
+#[tauri::command]
+pub fn set_active_output_style(scope: ScopeRef, name: String) -> Result<(), String> {
+    let home = home_dir()?;
+    let local = matches!(scope, ScopeRef::Project { .. });
+    write_string_key(&settings_file(&scope, &home, local), "outputStyle", &name)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn active_output_style_prefers_local_then_project_then_user() {
+        let base = std::env::temp_dir().join(format!("cc-os-test-{}", std::process::id()));
+        let proj = base.join("proj");
+        let claude = proj.join(".claude");
+        fs::create_dir_all(&claude).unwrap();
+        let scope = ScopeRef::Project { id: proj.to_string_lossy().into_owned() };
+
+        write_string_key(&claude.join("settings.json"), "outputStyle", "team").unwrap();
+        assert_eq!(get_active_for(&base, &scope), Some("team".to_string()));
+
+        write_string_key(&claude.join("settings.local.json"), "outputStyle", "mine").unwrap();
+        assert_eq!(get_active_for(&base, &scope), Some("mine".to_string()));
+
+        fs::remove_dir_all(&base).ok();
+    }
+
+    // Mirrors get_active_output_style with an injectable home (keeps the
+    // user-level fallback hermetic).
+    fn get_active_for(home: &Path, scope: &ScopeRef) -> Option<String> {
+        if let ScopeRef::Project { .. } = scope {
+            read_string_key(&settings_file(scope, home, true), "outputStyle")
+                .or_else(|| read_string_key(&settings_file(scope, home, false), "outputStyle"))
+                .or_else(|| {
+                    read_string_key(&home.join(".claude").join("settings.json"), "outputStyle")
+                })
+        } else {
+            read_string_key(&settings_file(scope, home, false), "outputStyle")
+        }
+    }
 
     #[test]
     fn scans_each_discovery_mode() {

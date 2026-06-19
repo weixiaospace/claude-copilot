@@ -9,12 +9,21 @@ import { ResourcePanel } from "./ResourcePanel";
 import { HooksPanel } from "./HooksPanel";
 import { McpPanel } from "./McpPanel";
 import { MemoryPanel } from "./MemoryPanel";
+import { OutputStylesPanel } from "./OutputStylesPanel";
 
 function toScopeRef(scope: Scope): ScopeRef {
   return scope.kind === "user" ? { kind: "user" } : { kind: "project", id: scope.id };
 }
 
-type TabKey = "skills" | "agents" | "workflows" | "rules" | "hooks" | "mcp" | "memory";
+type TabKey =
+  | "skills"
+  | "agents"
+  | "workflows"
+  | "rules"
+  | "output_styles"
+  | "hooks"
+  | "mcp"
+  | "memory";
 type ResourceTabKey = "skills" | "agents" | "workflows" | "rules";
 
 const BASE_TABS: { key: TabKey; label: string }[] = [
@@ -22,6 +31,7 @@ const BASE_TABS: { key: TabKey; label: string }[] = [
   { key: "agents", label: "resource.agents" },
   { key: "workflows", label: "resource.workflows" },
   { key: "rules", label: "resource.rules" },
+  { key: "output_styles", label: "resource.outputStyles" },
   { key: "hooks", label: "hooks.title" },
   { key: "mcp", label: "mcp.title" },
 ];
@@ -117,6 +127,8 @@ export function ResourceArea({ scope }: { scope: Scope }) {
       <div class="min-h-0 flex-1">
         {tab === "memory" && scope.kind === "project" ? (
           <MemoryPanel key={`${scope.id}:memory`} projectId={scope.id} />
+        ) : tab === "output_styles" ? (
+          <OutputStylesPanel key={`${scope.id}:output_styles`} scope={ref} />
         ) : tab === "hooks" ? (
           <HooksPanel key={`${scope.id}:hooks`} scope={ref} />
         ) : tab === "mcp" ? (
