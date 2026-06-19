@@ -1,0 +1,35 @@
+# CI for the Tauri 2 app: pnpm/Vite/Preact frontend + Rust workspace (core, src-tauri).
+# Runs on pushes to main and on pull requests targeting main.
+# Cheap checks (type-drift, frontend) run before the heavy Tauri/WebKitGTK build so we fail fast.
+main:
+  push:
+    - &ci
+      name: ci
+      docker:
+        image: node:22-bookworm
+      stages:
+        - name: setup toolchains
+          script: |
+            apt-get update
+            apt-get install -y --no-install-recommends \
+              build-essential curl wget file pkg-config libssl-dev \
+              libwebkit2gtk-4.1-dev libgtk-3-dev \
+              libayatana-appindicator3-dev librsvg2-dev libxdo-dev
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+              | sh -s -- -y --default-toolchain stable --profile minimal
+            npm install -g pnpm
+        - name: install deps
+          script: pnpm install --frozen-lockfile
+        - name: generate types + drift gate
+          script: |
+            . "$HOME/.cargo/env"
+            cargo test -p claude-copilot-core
+            git diff --exit-code src/types
+        - name: frontend build
+          script: pnpm build
+        - name: workspace build
+          script: |
+            . "$HOME/.cargo/env"
+            cargo build --workspace
+  pull_request:
+    - *ci

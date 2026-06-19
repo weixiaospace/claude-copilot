@@ -6,11 +6,28 @@ sibling_repo: ../../../vscode-claude-copilot
 related:
   - ../../../../vscode-claude-copilot/docs/adr/0001-file-backed-resource-abstraction.md
   - ../../../../vscode-claude-copilot/CONTEXT.md
+  - ./adr/0001-provider-profiles-own-file.md
+  - ./adr/0002-no-radix-handrolled-ui.md
+  - ../CONTEXT.md
+  - ../CLAUDE.md
 ---
 
 # Claude Copilot Desktop — Design
 
 A Tauri 2 desktop client for managing Claude Code configuration. Spiritual sibling of the `vscode-claude-copilot` extension (lives at `../../../vscode-claude-copilot` on this machine), but with a **scope-first information architecture** instead of the extension's resource-first panels.
+
+## 0. Amendments (2026-06-19 grilling session)
+
+This spec was stress-tested after approval. The decisions below revise parts of it; the authoritative records are [`CONTEXT.md`](../CONTEXT.md) (glossary), [`docs/adr/`](adr/) (decisions), and [`CLAUDE.md`](../CLAUDE.md) (conventions).
+
+- **Project identity** = git repository root (matching Claude Code's auto-memory keying); a non-git folder is its own Project; worktrees/subdirs collapse to one Project. Claude-known projects' real paths come from `~/.claude.json#projects` keys (fallback: a session `.jsonl` `cwd`) — never by reverse-decoding the lossy slug. → `CONTEXT.md`
+- **MCP storage** (corrects §6): project = `<repo>/.mcp.json`; user = `~/.claude.json#mcpServers`; local = `~/.claude.json#projects[<abs>].mcpServers`. Read the JSON directly; use the `claude mcp` CLI only for writes.
+- **Providers** = a pinned **global** sidebar entry (not a scoped panel), with per-scope activation. Own `profiles.json` + keychain; v0.1 does not touch the VSCode `providers.json`; the active profile is derived from settings, not stored. → ADR-0001, supersedes §10/§11/§14.
+- **UI** = no Radix/shadcn; hand-rolled Preact + Tailwind 4. → ADR-0002, supersedes §7.
+- **Settings panel** = the residue after dedicated modules; v0.1 = typed controls for high-frequency fields + a generic structured editor for the long tail (raw-JSON "advanced mode" later).
+- **Hooks** = read-only merged view; User panel ← user + plugin sources, Project panel ← project + local sources, each row labeled by source.
+- **Security** = fs allowlist with a native permission prompt for outliers; sanitize rendered markdown. → `CLAUDE.md`
+- **Output Styles / ts-rs**: User-scope active output style lives in `~/.claude/settings.json#outputStyle`; ts-rs drift is gated in CI via `git diff --exit-code src/types/`.
 
 ## 1. Goals
 
@@ -121,7 +138,7 @@ The desktop app is **standalone**: separate repo, separate releases, separate is
 | Output Styles | `~/.claude/output-styles/` | `<proj>/.claude/output-styles/` |
 | Rules | `~/.claude/rules/` | `<proj>/.claude/rules/` |
 | Hooks | user `settings.json` only | project `settings.json` + project `settings.local.json` + plugin `hooks/hooks.json` (plugin hooks always show under the user scope's Hooks panel — they're globally enabled) |
-| MCP | `claude mcp list` (CLI) | project `settings.json#mcpServers` |
+| MCP | user `~/.claude.json#mcpServers` | project `<repo>/.mcp.json` + local `~/.claude.json#projects[<abs>].mcpServers` (corrected — see §0) |
 | Settings | user `settings.json` | project `settings.json` + project `settings.local.json` (two sub-tabs) |
 | Memory | — | `~/.claude/projects/<slug>/memory/` |
 | Usage | cross-project aggregation | sessions filtered to this project's slug |
@@ -132,6 +149,8 @@ The desktop app is **standalone**: separate repo, separate releases, separate is
 - Managed scope (admin-pushed) is out of scope for v0.1.
 
 ## 7. Frontend Stack & Repo Structure
+
+> ⚠️ **UI stack superseded by [ADR-0002](adr/0002-no-radix-handrolled-ui.md).** No Radix/shadcn dependency; primitives are hand-rolled in Preact + Tailwind 4. The `components.json` and "paste React-source shadcn" approach described below no longer applies.
 
 ```
 claude-copilot-desktop/
@@ -311,6 +330,8 @@ listen<void>('providers-changed', cb);  // fires when ~/.claude/claude-copilot/p
 
 ## 10. Persistence Layout
 
+> ⚠️ **Provider storage superseded by [ADR-0001](adr/0001-provider-profiles-own-file.md).** The desktop owns its own `profiles.json` (not a shared `providers.json`) and does not touch the VSCode extension's file in v0.1. The shared-file / mtime write-conflict design below no longer applies; `state.json` stays pure UI state.
+
 ```
 ~/.claude/claude-copilot/
 ├── providers.json    ← shared with VSCode extension (both read/write)
@@ -339,6 +360,8 @@ listen<void>('providers-changed', cb);  // fires when ~/.claude/claude-copilot/p
 **Write conflict handling** for `providers.json`: stat the file's mtime before writing; if it changed since we last read, refuse and reload. Race window between two simultaneously-running apps is small but the check makes it deterministic.
 
 ## 11. Provider Credential Storage (Path A — desktop half)
+
+> ⚠️ **Superseded by [ADR-0001](adr/0001-provider-profiles-own-file.md).** Profiles live in the desktop's own `profiles.json`; activation writes the plaintext token into the chosen scope's settings (User → `settings.json`, Project → `settings.local.json`); the active profile is **derived** from settings (by token-value match), not stored. Providers is a pinned global sidebar entry with per-scope activation, not a scoped panel. The keychain convention below still holds, but its role is "profile vault + future cross-app sharing," not keeping the active secret off disk.
 
 `keyring` crate, with this convention:
 
@@ -385,6 +408,8 @@ Via the existing `tauri-cnb-autoupdate` skill at implementation time. Target sta
 - Release cadence: manual tag triggers the workflow.
 
 ## 14. Cross-Project Coordination (with `vscode-claude-copilot`)
+
+> ⚠️ **Superseded by [ADR-0001](adr/0001-provider-profiles-own-file.md).** `providers.json` is no longer shared: in v0.1 the two apps do not touch each other's provider files (mutual non-interference); a future VSCode release deprecates its `providers.json` and adopts the desktop's `profiles.json`.
 
 Two separate releases, separate version trains, separate issue trackers. They cooperate strictly through file conventions:
 
