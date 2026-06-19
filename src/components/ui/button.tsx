@@ -12,15 +12,21 @@ const variants: Record<Variant, string> = {
   active: "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white",
 };
 
-interface ButtonProps
-  extends Omit<JSX.HTMLAttributes<HTMLButtonElement>, "class" | "className"> {
+interface ButtonProps extends Omit<JSX.HTMLAttributes<HTMLButtonElement>, "class"> {
   variant?: Variant;
+  /** Extra classes merged after the variant's. */
+  class?: string;
   children?: ComponentChildren;
 }
 
-export function Button({ variant = "default", children, ...props }: ButtonProps) {
+export function Button({
+  variant = "default",
+  class: extra = "",
+  children,
+  ...props
+}: ButtonProps) {
   return (
-    <button class={`${base} ${variants[variant]}`} {...props}>
+    <button class={`${base} ${variants[variant]} ${extra}`} {...props}>
       {children}
     </button>
   );
