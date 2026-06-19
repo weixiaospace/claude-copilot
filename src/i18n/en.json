@@ -6,5 +6,15 @@
   "sidebar.stale": "Path no longer exists",
   "scope.user": "User",
   "app.noScopeSelected": "No scope selected",
-  "dialog.addProjectTitle": "Add Project"
+  "dialog.addProjectTitle": "Add Project",
+  "resource.skills": "Skills",
+  "resource.refresh": "Refresh",
+  "resource.create": "Create",
+  "resource.namePlaceholder": "new skill name",
+  "resource.empty": "Nothing here yet",
+  "detail.openInEditor": "Open in editor",
+  "detail.quickEdit": "Quick edit",
+  "detail.save": "Save",
+  "detail.delete": "Delete",
+  "detail.confirmDelete": "Delete this skill? This cannot be undone."
 }
