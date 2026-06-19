@@ -25,6 +25,10 @@ pub fn run() {
             commands::resources::list_workflows,
             commands::resources::delete_resource,
             commands::hooks::list_hooks,
+            commands::memory::memory_info,
+            commands::memory::list_memories,
+            commands::memory::create_memory,
+            commands::memory::delete_memory,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

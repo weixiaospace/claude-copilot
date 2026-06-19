@@ -4,6 +4,7 @@ import type { Scope } from "../types/Scope";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { FileResource } from "../types/FileResource";
 import type { HookEntry } from "../types/HookEntry";
+import type { MemoryInfo } from "../types/MemoryInfo";
 
 /**
  * Typed map of every IPC command: its argument shape and result.
@@ -31,6 +32,10 @@ export interface Commands {
   write_file: { args: { path: string; content: string }; result: void };
   open_in_editor: { args: { path: string }; result: void };
   list_hooks: { args: { scope: ScopeRef }; result: HookEntry[] };
+  memory_info: { args: { projectId: string }; result: MemoryInfo };
+  list_memories: { args: { projectId: string }; result: FileResource[] };
+  create_memory: { args: { projectId: string; name: string }; result: FileResource };
+  delete_memory: { args: { projectId: string; path: string }; result: void };
 }
 
 export function invoke<K extends keyof Commands>(

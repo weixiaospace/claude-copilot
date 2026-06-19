@@ -11,6 +11,7 @@
   "resource.agents": "Agents",
   "resource.workflows": "Workflows",
   "resource.rules": "Rules",
+  "resource.memory": "Memory",
   "resource.refresh": "Refresh",
   "resource.create": "Create",
   "resource.namePlaceholder": "name…",
@@ -26,5 +27,10 @@
   "hooks.source.user": "User",
   "hooks.source.project": "Project",
   "hooks.source.local": "Local",
-  "hooks.source.plugin": "Plugin"
+  "hooks.source.plugin": "Plugin",
+  "memory.namePlaceholder": "new memory file name",
+  "memory.empty": "No memory files yet",
+  "memory.location": "Location",
+  "memory.overridden": "Overridden by autoMemoryDirectory; default",
+  "memory.confirmDelete": "Delete this memory file? This cannot be undone."
 }

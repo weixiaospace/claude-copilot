@@ -11,6 +11,7 @@
   "resource.agents": "子代理",
   "resource.workflows": "工作流",
   "resource.rules": "规则",
+  "resource.memory": "记忆",
   "resource.refresh": "刷新",
   "resource.create": "创建",
   "resource.namePlaceholder": "名称…",
@@ -26,5 +27,10 @@
   "hooks.source.user": "用户",
   "hooks.source.project": "项目",
   "hooks.source.local": "本地",
-  "hooks.source.plugin": "插件"
+  "hooks.source.plugin": "插件",
+  "memory.namePlaceholder": "新记忆文件名",
+  "memory.empty": "暂无记忆文件",
+  "memory.location": "位置",
+  "memory.overridden": "已被 autoMemoryDirectory 覆盖；默认",
+  "memory.confirmDelete": "删除此记忆文件？此操作不可撤销。"
 }

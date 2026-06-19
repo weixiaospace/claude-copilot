@@ -7,14 +7,16 @@ import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
 import { ResourcePanel } from "./ResourcePanel";
 import { HooksPanel } from "./HooksPanel";
+import { MemoryPanel } from "./MemoryPanel";
 
 function toScopeRef(scope: Scope): ScopeRef {
   return scope.kind === "user" ? { kind: "user" } : { kind: "project", id: scope.id };
 }
 
-type TabKey = "skills" | "agents" | "workflows" | "rules" | "hooks";
+type TabKey = "skills" | "agents" | "workflows" | "rules" | "hooks" | "memory";
+type ResourceTabKey = "skills" | "agents" | "workflows" | "rules";
 
-const TABS: { key: TabKey; label: string }[] = [
+const BASE_TABS: { key: TabKey; label: string }[] = [
   { key: "skills", label: "resource.skills" },
   { key: "agents", label: "resource.agents" },
   { key: "workflows", label: "resource.workflows" },
@@ -33,7 +35,7 @@ async function confirmDelete(): Promise<boolean> {
   return confirm(t("detail.confirmDelete"), { kind: "warning" });
 }
 
-function panelProps(tab: Exclude<TabKey, "hooks">, scope: ScopeRef): PanelProps {
+function panelProps(tab: ResourceTabKey, scope: ScopeRef): PanelProps {
   const namePlaceholder = t("resource.namePlaceholder");
 
   // Skills delete their whole directory; flat resources delete a single file.
@@ -79,15 +81,23 @@ function panelProps(tab: Exclude<TabKey, "hooks">, scope: ScopeRef): PanelProps 
   }
 }
 
-/** The main area for a selected scope: resource tabs + the active panel. */
+/**
+ * The main area for a selected scope: resource tabs + the active panel. Tabs
+ * available depend on the scope (Memory is project-only). Remounted per scope
+ * (keyed in App), so the active tab resets when the scope changes.
+ */
 export function ResourceArea({ scope }: { scope: Scope }) {
   const ref = toScopeRef(scope);
+  const tabs =
+    scope.kind === "project"
+      ? [...BASE_TABS, { key: "memory" as TabKey, label: "resource.memory" }]
+      : BASE_TABS;
   const [tab, setTab] = useState<TabKey>("skills");
 
   return (
     <div class="flex h-full flex-col">
       <div class="flex gap-4 border-b border-neutral-200 px-6 dark:border-neutral-800">
-        {TABS.map((tb) => (
+        {tabs.map((tb) => (
           <button
             key={tb.key}
             class={
@@ -103,10 +113,15 @@ export function ResourceArea({ scope }: { scope: Scope }) {
         ))}
       </div>
       <div class="min-h-0 flex-1">
-        {tab === "hooks" ? (
+        {tab === "memory" && scope.kind === "project" ? (
+          <MemoryPanel key={`${scope.id}:memory`} projectId={scope.id} />
+        ) : tab === "hooks" ? (
           <HooksPanel key={`${scope.id}:hooks`} scope={ref} />
         ) : (
-          <ResourcePanel key={`${scope.id}:${tab}`} {...panelProps(tab, ref)} />
+          <ResourcePanel
+            key={`${scope.id}:${tab}`}
+            {...panelProps(tab as ResourceTabKey, ref)}
+          />
         )}
       </div>
     </div>
