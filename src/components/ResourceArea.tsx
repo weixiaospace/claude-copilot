@@ -6,18 +6,20 @@ import type { FileResource } from "../types/FileResource";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
 import { ResourcePanel } from "./ResourcePanel";
+import { HooksPanel } from "./HooksPanel";
 
 function toScopeRef(scope: Scope): ScopeRef {
   return scope.kind === "user" ? { kind: "user" } : { kind: "project", id: scope.id };
 }
 
-type TabKey = "skills" | "agents" | "workflows" | "rules";
+type TabKey = "skills" | "agents" | "workflows" | "rules" | "hooks";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "skills", label: "resource.skills" },
   { key: "agents", label: "resource.agents" },
   { key: "workflows", label: "resource.workflows" },
   { key: "rules", label: "resource.rules" },
+  { key: "hooks", label: "hooks.title" },
 ];
 
 interface PanelProps {
@@ -31,7 +33,7 @@ async function confirmDelete(): Promise<boolean> {
   return confirm(t("detail.confirmDelete"), { kind: "warning" });
 }
 
-function panelProps(tab: TabKey, scope: ScopeRef): PanelProps {
+function panelProps(tab: Exclude<TabKey, "hooks">, scope: ScopeRef): PanelProps {
   const namePlaceholder = t("resource.namePlaceholder");
 
   // Skills delete their whole directory; flat resources delete a single file.
@@ -101,7 +103,11 @@ export function ResourceArea({ scope }: { scope: Scope }) {
         ))}
       </div>
       <div class="min-h-0 flex-1">
-        <ResourcePanel key={`${scope.id}:${tab}`} {...panelProps(tab, ref)} />
+        {tab === "hooks" ? (
+          <HooksPanel key={`${scope.id}:hooks`} scope={ref} />
+        ) : (
+          <ResourcePanel key={`${scope.id}:${tab}`} {...panelProps(tab, ref)} />
+        )}
       </div>
     </div>
   );

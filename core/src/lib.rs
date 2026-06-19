@@ -6,5 +6,6 @@
 
 pub mod file_resource;
 pub mod frontmatter;
+pub mod hooks;
 pub mod projects;
 pub mod scopes;

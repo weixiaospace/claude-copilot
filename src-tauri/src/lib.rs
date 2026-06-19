@@ -24,6 +24,7 @@ pub fn run() {
             commands::resources::create_rule,
             commands::resources::list_workflows,
             commands::resources::delete_resource,
+            commands::hooks::list_hooks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -19,5 +19,12 @@
   "detail.quickEdit": "快速编辑",
   "detail.save": "保存",
   "detail.delete": "删除",
-  "detail.confirmDelete": "删除此项？此操作不可撤销。"
+  "detail.confirmDelete": "删除此项？此操作不可撤销。",
+  "hooks.title": "Hooks",
+  "hooks.empty": "无 hooks",
+  "hooks.openFile": "打开文件",
+  "hooks.source.user": "用户",
+  "hooks.source.project": "项目",
+  "hooks.source.local": "本地",
+  "hooks.source.plugin": "插件"
 }

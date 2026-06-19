@@ -19,5 +19,12 @@
   "detail.quickEdit": "Quick edit",
   "detail.save": "Save",
   "detail.delete": "Delete",
-  "detail.confirmDelete": "Delete this? This cannot be undone."
+  "detail.confirmDelete": "Delete this? This cannot be undone.",
+  "hooks.title": "Hooks",
+  "hooks.empty": "No hooks",
+  "hooks.openFile": "Open file",
+  "hooks.source.user": "User",
+  "hooks.source.project": "Project",
+  "hooks.source.local": "Local",
+  "hooks.source.plugin": "Plugin"
 }
