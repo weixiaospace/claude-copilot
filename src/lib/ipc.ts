@@ -20,6 +20,12 @@ export interface Commands {
   list_skills: { args: { scope: ScopeRef }; result: FileResource[] };
   create_skill: { args: { scope: ScopeRef; name: string }; result: FileResource };
   delete_skill: { args: { path: string }; result: void };
+  list_agents: { args: { scope: ScopeRef }; result: FileResource[] };
+  create_agent: { args: { scope: ScopeRef; name: string }; result: FileResource };
+  list_rules: { args: { scope: ScopeRef }; result: FileResource[] };
+  create_rule: { args: { scope: ScopeRef; name: string }; result: FileResource };
+  list_workflows: { args: { scope: ScopeRef }; result: FileResource[] };
+  delete_resource: { args: { path: string }; result: void };
   read_file: { args: { path: string }; result: string };
   write_file: { args: { path: string; content: string }; result: void };
   open_in_editor: { args: { path: string }; result: void };

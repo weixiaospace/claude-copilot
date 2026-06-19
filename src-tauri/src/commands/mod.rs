@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 pub mod files;
+pub mod resources;
 pub mod scopes;
-pub mod skills;
 pub mod ui;
 
 /// Resolve the user's home directory, shared by command modules.

@@ -15,9 +15,15 @@ pub fn run() {
             commands::files::read_file,
             commands::files::write_file,
             commands::files::open_in_editor,
-            commands::skills::list_skills,
-            commands::skills::create_skill,
-            commands::skills::delete_skill,
+            commands::resources::list_skills,
+            commands::resources::create_skill,
+            commands::resources::delete_skill,
+            commands::resources::list_agents,
+            commands::resources::create_agent,
+            commands::resources::list_rules,
+            commands::resources::create_rule,
+            commands::resources::list_workflows,
+            commands::resources::delete_resource,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

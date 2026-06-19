@@ -8,13 +8,16 @@
   "app.noScopeSelected": "No scope selected",
   "dialog.addProjectTitle": "Add Project",
   "resource.skills": "Skills",
+  "resource.agents": "Agents",
+  "resource.workflows": "Workflows",
+  "resource.rules": "Rules",
   "resource.refresh": "Refresh",
   "resource.create": "Create",
-  "resource.namePlaceholder": "new skill name",
+  "resource.namePlaceholder": "name…",
   "resource.empty": "Nothing here yet",
   "detail.openInEditor": "Open in editor",
   "detail.quickEdit": "Quick edit",
   "detail.save": "Save",
   "detail.delete": "Delete",
-  "detail.confirmDelete": "Delete this skill? This cannot be undone."
+  "detail.confirmDelete": "Delete this? This cannot be undone."
 }
