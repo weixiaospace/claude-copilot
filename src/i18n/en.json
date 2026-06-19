@@ -72,5 +72,14 @@
   "providers.cancel": "Cancel",
   "providers.empty": "No profiles yet",
   "providers.confirmDelete": "Delete this profile and its stored secret?",
-  "providers.credentialMissing": "credential missing"
+  "providers.credentialMissing": "credential missing",
+  "usage.title": "Usage",
+  "usage.day": "Day",
+  "usage.week": "Week",
+  "usage.month": "Month",
+  "usage.totalTokens": "Total tokens",
+  "usage.sessions": "Sessions",
+  "usage.empty": "No usage data",
+  "usage.timeline": "Timeline",
+  "usage.byModel": "By model"
 }
