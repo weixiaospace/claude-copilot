@@ -28,6 +28,8 @@ export interface Commands {
   remove_manual_project: { args: { id: string }; result: Scope[] };
   get_locale: { args: void; result: string | null };
   set_locale: { args: { locale: string }; result: void };
+  get_welcome_seen: { args: void; result: boolean };
+  mark_welcome_seen: { args: void; result: void };
   list_skills: { args: { scope: ScopeRef }; result: FileResource[] };
   create_skill: { args: { scope: ScopeRef; name: string }; result: FileResource };
   delete_skill: { args: { path: string }; result: void };

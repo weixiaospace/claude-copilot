@@ -81,5 +81,8 @@
   "usage.sessions": "Sessions",
   "usage.empty": "No usage data",
   "usage.timeline": "Timeline",
-  "usage.byModel": "By model"
+  "usage.byModel": "By model",
+  "welcome.title": "Welcome to Claude Copilot",
+  "welcome.body": "This app manages your Claude Code configuration in ~/.claude. Provider credentials are stored independently here (in your OS keychain) and, in v0.1, are not shared with the VSCode extension — re-add any API profiles you need under Providers.",
+  "welcome.dismiss": "Get started"
 }
