@@ -1,4 +1,5 @@
 mod commands;
+mod secrets;
 mod state;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -46,6 +47,10 @@ pub fn run() {
             commands::plugins::add_marketplace,
             commands::plugins::remove_marketplace,
             commands::plugins::update_marketplace,
+            commands::providers::list_profiles,
+            commands::providers::create_profile,
+            commands::providers::update_profile,
+            commands::providers::delete_profile,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

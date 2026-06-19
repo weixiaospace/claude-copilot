@@ -11,4 +11,5 @@ pub mod mcp;
 pub mod memory;
 pub mod plugins;
 pub mod projects;
+pub mod providers;
 pub mod scopes;

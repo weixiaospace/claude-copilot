@@ -59,5 +59,18 @@
   "plugins.confirmUninstall": "卸载此插件？",
   "plugins.noBundled": "无自带资源",
   "plugins.available": "可安装",
-  "plugins.install": "安装"
+  "plugins.install": "安装",
+  "providers.title": "Providers",
+  "providers.new": "新建配置",
+  "providers.edit": "编辑",
+  "providers.name": "名称",
+  "providers.kind": "提供方",
+  "providers.authMode": "鉴权方式",
+  "providers.baseUrl": "Base URL",
+  "providers.secret": "密钥",
+  "providers.secretKeep": "留空则保持现有",
+  "providers.cancel": "取消",
+  "providers.empty": "暂无配置",
+  "providers.confirmDelete": "删除此配置及其存储的密钥？",
+  "providers.credentialMissing": "缺少凭证"
 }
