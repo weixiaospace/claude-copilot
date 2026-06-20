@@ -53,7 +53,9 @@ cat /tmp/latest.json
 
 echo "→ push latest.json to CNB main"
 tmp=$(mktemp -d)
-git clone --depth 1 "https://cnb:${CNB_TOKEN}@cnb.cool/$REPO.git" "$tmp/repo"
+# Clone `main` explicitly — the repo's default branch may be something else,
+# and we must commit the manifest onto main (where the updater endpoint reads).
+git clone --depth 1 --branch main "https://cnb:${CNB_TOKEN}@cnb.cool/$REPO.git" "$tmp/repo"
 mkdir -p "$tmp/repo/.updater"; cp /tmp/latest.json "$tmp/repo/.updater/latest.json"
 git -C "$tmp/repo" config user.name "release-bot"
 git -C "$tmp/repo" config user.email "release-bot@users.noreply.cnb.cool"
