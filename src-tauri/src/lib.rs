@@ -51,6 +51,7 @@ pub fn run() {
             commands::providers::create_profile,
             commands::providers::update_profile,
             commands::providers::delete_profile,
+            commands::usage::query_usage,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

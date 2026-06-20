@@ -72,5 +72,14 @@
   "providers.cancel": "取消",
   "providers.empty": "暂无配置",
   "providers.confirmDelete": "删除此配置及其存储的密钥？",
-  "providers.credentialMissing": "缺少凭证"
+  "providers.credentialMissing": "缺少凭证",
+  "usage.title": "用量",
+  "usage.day": "日",
+  "usage.week": "周",
+  "usage.month": "月",
+  "usage.totalTokens": "总 tokens",
+  "usage.sessions": "会话数",
+  "usage.empty": "暂无用量数据",
+  "usage.timeline": "时间线",
+  "usage.byModel": "按模型"
 }

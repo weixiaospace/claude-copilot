@@ -9,6 +9,7 @@ pub mod providers;
 pub mod resources;
 pub mod scopes;
 pub mod ui;
+pub mod usage;
 
 /// Resolve the user's home directory, shared by command modules.
 pub(crate) fn home_dir() -> Result<PathBuf, String> {

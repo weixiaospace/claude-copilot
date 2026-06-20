@@ -13,6 +13,7 @@ import type { AvailablePlugin } from "../types/AvailablePlugin";
 import type { BundledResource } from "../types/BundledResource";
 import type { Profile } from "../types/Profile";
 import type { ProfileInput } from "../types/ProfileInput";
+import type { UsageResult } from "../types/UsageResult";
 
 /**
  * Typed map of every IPC command: its argument shape and result.
@@ -71,6 +72,10 @@ export interface Commands {
     result: Profile;
   };
   delete_profile: { args: { id: string }; result: void };
+  query_usage: {
+    args: { scope: ScopeRef; granularity: "day" | "week" | "month" };
+    result: UsageResult;
+  };
 }
 
 export function invoke<K extends keyof Commands>(
