@@ -12,6 +12,7 @@ import { MemoryPanel } from "./MemoryPanel";
 import { OutputStylesPanel } from "./OutputStylesPanel";
 import { PluginsPanel } from "./PluginsPanel";
 import { UsagePanel } from "./UsagePanel";
+import { SettingsPanel } from "./SettingsPanel";
 
 function toScopeRef(scope: Scope): ScopeRef {
   return scope.kind === "user" ? { kind: "user" } : { kind: "project", id: scope.id };
@@ -27,7 +28,8 @@ type TabKey =
   | "mcp"
   | "memory"
   | "plugins"
-  | "usage";
+  | "usage"
+  | "settings";
 type ResourceTabKey = "skills" | "agents" | "workflows" | "rules";
 
 const BASE_TABS: { key: TabKey; label: string }[] = [
@@ -39,6 +41,7 @@ const BASE_TABS: { key: TabKey; label: string }[] = [
   { key: "hooks", label: "hooks.title" },
   { key: "mcp", label: "mcp.title" },
   { key: "usage", label: "usage.title" },
+  { key: "settings", label: "settings.title" },
 ];
 
 interface PanelProps {
@@ -142,6 +145,8 @@ export function ResourceArea({ scope }: { scope: Scope }) {
           <McpPanel key={`${scope.id}:mcp`} scope={ref} />
         ) : tab === "usage" ? (
           <UsagePanel key={`${scope.id}:usage`} scope={ref} />
+        ) : tab === "settings" ? (
+          <SettingsPanel key={`${scope.id}:settings`} scope={scope} />
         ) : (
           <ResourcePanel
             key={`${scope.id}:${tab}`}

@@ -8,6 +8,7 @@ pub mod plugins;
 pub mod providers;
 pub mod resources;
 pub mod scopes;
+pub mod settings;
 pub mod ui;
 pub mod usage;
 

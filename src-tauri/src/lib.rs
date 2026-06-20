@@ -56,6 +56,8 @@ pub fn run() {
             commands::providers::update_profile,
             commands::providers::delete_profile,
             commands::usage::query_usage,
+            commands::settings::read_settings,
+            commands::settings::write_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -78,6 +78,14 @@ export interface Commands {
     args: { scope: ScopeRef; granularity: "day" | "week" | "month" };
     result: UsageResult;
   };
+  read_settings: {
+    args: { scope: ScopeRef; layer: string };
+    result: Record<string, unknown>;
+  };
+  write_settings: {
+    args: { scope: ScopeRef; layer: string; value: Record<string, unknown> };
+    result: void;
+  };
 }
 
 export function invoke<K extends keyof Commands>(
