@@ -17,6 +17,8 @@
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use serde::Deserialize;
 
@@ -30,6 +32,14 @@ use super::{home_dir, sessions};
 const ANTHROPIC_OAUTH_USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
 const ANTHROPIC_OAUTH_BETA: &str = "oauth-2025-04-20";
 const CREDENTIALS_FILE: &str = ".credentials.json";
+const QUOTA_TTL: Duration = Duration::from_secs(60);
+
+struct QuotaCache {
+    fetched_at: Instant,
+    quota: ClaudeSubscriptionQuota,
+}
+
+static QUOTA_CACHE: Mutex<Option<QuotaCache>> = Mutex::new(None);
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -207,8 +217,27 @@ fn error_quota(status: CredentialStatus, message: String) -> ClaudeSubscriptionQ
 
 /// Query the Anthropic OAuth subscription quota endpoint using the stored
 /// access token. Returns per-window utilization and reset times.
+///
+/// Results are cached for 60s on success / 5s on error to avoid hammering the
+/// API when the user switches pages or clicks refresh repeatedly.
 #[tauri::command]
 pub async fn get_claude_subscription_quota() -> Result<ClaudeSubscriptionQuota, String> {
+    let now = Instant::now();
+
+    {
+        let cache = QUOTA_CACHE.lock().map_err(|e| e.to_string())?;
+        if let Some(c) = cache.as_ref() {
+            let age = now.duration_since(c.fetched_at);
+            // Always return a very recent result (success or error) to stop rapid clicks.
+            let recent = age < Duration::from_secs(5);
+            // Keep successful results for the full TTL.
+            let success_still_fresh = c.quota.error.is_none() && age < QUOTA_TTL;
+            if recent || success_still_fresh {
+                return Ok(c.quota.clone());
+            }
+        }
+    }
+
     let token = match read_access_token() {
         Ok(Some(t)) => t,
         Ok(None) => return Ok(not_found_quota()),
@@ -221,6 +250,7 @@ pub async fn get_claude_subscription_quota() -> Result<ClaudeSubscriptionQuota, 
         .header("Authorization", format!("Bearer {token}"))
         .header("anthropic-beta", ANTHROPIC_OAUTH_BETA)
         .header("Accept", "application/json")
+        .header("User-Agent", "ClaudeCopilot/0.1.0")
         .timeout(std::time::Duration::from_secs(15))
         .send()
         .await
@@ -228,17 +258,35 @@ pub async fn get_claude_subscription_quota() -> Result<ClaudeSubscriptionQuota, 
 
     let status = resp.status();
     if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
-        return Ok(error_quota(
+        let quota = error_quota(
             CredentialStatus::Expired,
-            format!("Authentication failed (HTTP {status}). Please log in again."),
-        ));
+            "Authentication failed. Please log in again.".to_string(),
+        );
+        store_quota_cache(quota.clone());
+        return Ok(quota);
+    }
+    if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+        let retry = resp
+            .headers()
+            .get("retry-after")
+            .and_then(|v| v.to_str().ok())
+            .map(|s| format!(" (retry after {s}s)"))
+            .unwrap_or_default();
+        let quota = error_quota(
+            CredentialStatus::Valid,
+            format!("Rate limited. Please try again later.{retry}"),
+        );
+        store_quota_cache(quota.clone());
+        return Ok(quota);
     }
     if !status.is_success() {
         let body = resp.text().await.unwrap_or_default();
-        return Ok(error_quota(
+        let quota = error_quota(
             CredentialStatus::Valid,
             format!("API error (HTTP {status}): {body}"),
-        ));
+        );
+        store_quota_cache(quota.clone());
+        return Ok(quota);
     }
 
     let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
@@ -284,11 +332,22 @@ pub async fn get_claude_subscription_quota() -> Result<ClaudeSubscriptionQuota, 
             })
     });
 
-    Ok(ClaudeSubscriptionQuota {
+    let quota = ClaudeSubscriptionQuota {
         logged_in: true,
         credential_status: CredentialStatus::Valid,
         tiers,
         extra_usage,
         error: None,
-    })
+    };
+    store_quota_cache(quota.clone());
+    Ok(quota)
+}
+
+fn store_quota_cache(quota: ClaudeSubscriptionQuota) {
+    if let Ok(mut cache) = QUOTA_CACHE.lock() {
+        *cache = Some(QuotaCache {
+            fetched_at: Instant::now(),
+            quota,
+        });
+    }
 }

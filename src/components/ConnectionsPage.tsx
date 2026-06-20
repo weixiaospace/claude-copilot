@@ -345,28 +345,30 @@ export function ConnectionsPage() {
               <RefreshCw size={14} class={authLoading || quotaLoading ? "animate-spin" : ""} />
             </Button>
             {authStatus?.logged_in ? (
-              <Button variant="ghost" onClick={() => void openLogin()}>
-                <LogIn size={14} class="mr-1" />
-                {t("auth.relogin")}
-              </Button>
+              <>
+                <Button variant="ghost" onClick={() => void openLogin()}>
+                  <LogIn size={14} class="mr-1" />
+                  {t("auth.relogin")}
+                </Button>
+                {subscriptionActive ? (
+                  <Button variant="ghost" disabled>
+                    <Check size={14} class="mr-1 text-accent" />
+                    {t("auth.userDefault")}
+                  </Button>
+                ) : unmanagedActive ? (
+                  <Button variant="ghost" disabled>
+                    {t("auth.externalManaged")}
+                  </Button>
+                ) : (
+                  <Button variant="ghost" onClick={() => void setSubscriptionAsDefault()}>
+                    {t("auth.setUserDefault")}
+                  </Button>
+                )}
+              </>
             ) : (
               <Button onClick={() => void openLogin()}>
                 <LogIn size={14} class="mr-1" />
                 {t("auth.login")}
-              </Button>
-            )}
-            {subscriptionActive ? (
-              <Button variant="ghost" disabled>
-                <Check size={14} class="mr-1 text-accent" />
-                {t("auth.userDefault")}
-              </Button>
-            ) : unmanagedActive ? (
-              <Button variant="ghost" disabled>
-                {t("auth.externalManaged")}
-              </Button>
-            ) : (
-              <Button variant="ghost" onClick={() => void setSubscriptionAsDefault()}>
-                {t("auth.setUserDefault")}
               </Button>
             )}
           </div>
