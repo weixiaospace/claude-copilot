@@ -4,6 +4,7 @@ import type { Scope } from "../types/Scope";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { FileResource } from "../types/FileResource";
 import { invoke } from "../lib/ipc";
+import { fsTick } from "../lib/signals";
 import { t } from "../lib/i18n";
 import { ResourcePanel } from "./ResourcePanel";
 import { HooksPanel } from "./HooksPanel";
@@ -132,7 +133,7 @@ export function ResourceArea({ scope }: { scope: Scope }) {
           </button>
         ))}
       </div>
-      <div class="min-h-0 flex-1">
+      <div key={`${scope.id}:${fsTick.value}`} class="min-h-0 flex-1">
         {tab === "memory" && scope.kind === "project" ? (
           <MemoryPanel key={`${scope.id}:memory`} projectId={scope.id} />
         ) : tab === "output_styles" ? (

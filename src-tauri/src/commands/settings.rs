@@ -48,7 +48,9 @@ pub(crate) fn write_doc(path: &Path, value: &Value) -> Result<(), String> {
         fs::create_dir_all(dir).map_err(|e| format!("failed to create {}: {e}", dir.display()))?;
     }
     let text = serde_json::to_string_pretty(value).map_err(|e| format!("failed to serialize: {e}"))?;
-    fs::write(path, text + "\n").map_err(|e| format!("failed to write {}: {e}", path.display()))
+    fs::write(path, text + "\n").map_err(|e| format!("failed to write {}: {e}", path.display()))?;
+    crate::watchers::note_write();
+    Ok(())
 }
 
 /// Read a layer's settings doc, or `{}` if absent.

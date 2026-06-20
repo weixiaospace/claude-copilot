@@ -1,6 +1,7 @@
 mod commands;
 mod secrets;
 mod state;
+mod watchers;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -9,6 +10,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         // Restores + persists window size/position across launches.
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .setup(|app| {
+            // Live-reload watcher over ~/.claude (best-effort).
+            if let Some(home) = dirs::home_dir() {
+                watchers::start(app.handle().clone(), &home);
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::scopes::list_scopes,
             commands::scopes::add_project,

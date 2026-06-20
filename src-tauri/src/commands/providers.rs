@@ -37,7 +37,9 @@ fn save(home: &Path, file: &ProfilesFile) -> Result<(), String> {
     }
     let text =
         serde_json::to_string_pretty(file).map_err(|e| format!("failed to serialize: {e}"))?;
-    fs::write(&path, text + "\n").map_err(|e| format!("failed to write {}: {e}", path.display()))
+    fs::write(&path, text + "\n").map_err(|e| format!("failed to write {}: {e}", path.display()))?;
+    crate::watchers::note_write();
+    Ok(())
 }
 
 /// Recompute `has_secret` from the keychain for accurate display.
