@@ -17,9 +17,13 @@ pub fn set_secret(profile_id: &str, field: &str, secret: &str) -> Result<(), Str
 }
 
 pub fn has_secret(profile_id: &str, field: &str) -> bool {
+    get_secret(profile_id, field).is_some()
+}
+
+pub fn get_secret(profile_id: &str, field: &str) -> Option<String> {
     Entry::new(SERVICE, &account(profile_id, field))
         .and_then(|e| e.get_password())
-        .is_ok()
+        .ok()
 }
 
 pub fn delete_secret(profile_id: &str, field: &str) -> Result<(), String> {

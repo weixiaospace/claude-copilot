@@ -98,5 +98,8 @@
   "settings.addPlaceholder": "add… (Enter)",
   "settings.invalidJson": "Invalid JSON",
   "settings.saved": "Saved",
-  "settings.rawHint": "Switch to Raw JSON to edit other settings."
+  "settings.rawHint": "Switch to Raw JSON to edit other settings.",
+  "activation.label": "Provider",
+  "activation.subscription": "Subscription",
+  "activation.unmanaged": "Unmanaged (external)"
 }

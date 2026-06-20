@@ -4,6 +4,7 @@ import { initLocale, t } from "./lib/i18n";
 import { invoke } from "./lib/ipc";
 import { ScopeSidebar } from "./components/ScopeSidebar";
 import { LocaleSwitcher } from "./components/LocaleSwitcher";
+import { ProviderActivation } from "./components/ProviderActivation";
 import { ResourceArea } from "./components/ResourceArea";
 import { WelcomeDialog } from "./components/WelcomeDialog";
 
@@ -38,7 +39,10 @@ export function App() {
               <p class="truncate text-xs text-neutral-400">{selected.path}</p>
             )}
           </div>
-          <LocaleSwitcher />
+          <div class="flex items-center gap-3">
+            {selected && <ProviderActivation key={selected.id} scope={selected} />}
+            <LocaleSwitcher />
+          </div>
         </header>
         <div class="min-h-0 flex-1">
           {selected && <ResourceArea key={selected.id} scope={selected} />}
