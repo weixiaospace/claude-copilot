@@ -101,5 +101,9 @@
   "settings.rawHint": "切换到原始 JSON 可编辑其他设置。",
   "activation.label": "Provider",
   "activation.subscription": "订阅",
-  "activation.unmanaged": "外部(非本应用管理)"
+  "activation.unmanaged": "外部(非本应用管理)",
+  "resource.sessions": "会话",
+  "sessions.new": "新会话",
+  "sessions.resume": "恢复",
+  "sessions.empty": "暂无会话"
 }

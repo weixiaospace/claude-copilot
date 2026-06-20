@@ -139,7 +139,7 @@ pub fn scan_session_cwds(home: &Path) -> Vec<String> {
     cwds
 }
 
-fn first_cwd_in_dir(dir: &Path) -> Option<String> {
+pub(crate) fn first_cwd_in_dir(dir: &Path) -> Option<String> {
     let entries = fs::read_dir(dir).ok()?;
     for entry in entries.flatten() {
         let path = entry.path();
