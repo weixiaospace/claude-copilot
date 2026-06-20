@@ -13,3 +13,4 @@ src-tauri/gen/
 # Misc
 *.log
 .DS_Store
+.playwright-mcp/
