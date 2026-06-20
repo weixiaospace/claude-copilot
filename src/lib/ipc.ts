@@ -15,6 +15,7 @@ import type { Profile } from "../types/Profile";
 import type { ProfileInput } from "../types/ProfileInput";
 import type { ActiveProvider } from "../types/ActiveProvider";
 import type { UsageResult } from "../types/UsageResult";
+import type { Session } from "../types/Session";
 
 /**
  * Typed map of every IPC command: its argument shape and result.
@@ -88,6 +89,11 @@ export interface Commands {
   };
   write_settings: {
     args: { scope: ScopeRef; layer: string; value: Record<string, unknown> };
+    result: void;
+  };
+  list_sessions: { args: { projectId: string }; result: Session[] };
+  open_terminal: {
+    args: { projectId: string; tool: string; sessionId: string | null };
     result: void;
   };
 }

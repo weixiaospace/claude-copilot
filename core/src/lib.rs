@@ -13,4 +13,5 @@ pub mod plugins;
 pub mod projects;
 pub mod providers;
 pub mod scopes;
+pub mod sessions;
 pub mod usage;

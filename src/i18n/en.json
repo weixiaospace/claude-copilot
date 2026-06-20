@@ -101,5 +101,9 @@
   "settings.rawHint": "Switch to Raw JSON to edit other settings.",
   "activation.label": "Provider",
   "activation.subscription": "Subscription",
-  "activation.unmanaged": "Unmanaged (external)"
+  "activation.unmanaged": "Unmanaged (external)",
+  "resource.sessions": "Sessions",
+  "sessions.new": "New session",
+  "sessions.resume": "Resume",
+  "sessions.empty": "No sessions yet"
 }

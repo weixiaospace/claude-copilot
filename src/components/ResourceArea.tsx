@@ -14,6 +14,7 @@ import { OutputStylesPanel } from "./OutputStylesPanel";
 import { PluginsPanel } from "./PluginsPanel";
 import { UsagePanel } from "./UsagePanel";
 import { SettingsPanel } from "./SettingsPanel";
+import { SessionsPanel } from "./SessionsPanel";
 
 function toScopeRef(scope: Scope): ScopeRef {
   return scope.kind === "user" ? { kind: "user" } : { kind: "project", id: scope.id };
@@ -30,7 +31,8 @@ type TabKey =
   | "memory"
   | "plugins"
   | "usage"
-  | "settings";
+  | "settings"
+  | "sessions";
 type ResourceTabKey = "skills" | "agents" | "workflows" | "rules";
 
 const BASE_TABS: { key: TabKey; label: string }[] = [
@@ -111,7 +113,11 @@ export function ResourceArea({ scope }: { scope: Scope }) {
   const ref = toScopeRef(scope);
   const tabs =
     scope.kind === "project"
-      ? [...BASE_TABS, { key: "memory" as TabKey, label: "resource.memory" }]
+      ? [
+          ...BASE_TABS,
+          { key: "memory" as TabKey, label: "resource.memory" },
+          { key: "sessions" as TabKey, label: "resource.sessions" },
+        ]
       : [...BASE_TABS, { key: "plugins" as TabKey, label: "plugins.title" }];
   const [tab, setTab] = useState<TabKey>("skills");
 
@@ -136,6 +142,8 @@ export function ResourceArea({ scope }: { scope: Scope }) {
       <div key={`${scope.id}:${fsTick.value}`} class="min-h-0 flex-1">
         {tab === "memory" && scope.kind === "project" ? (
           <MemoryPanel key={`${scope.id}:memory`} projectId={scope.id} />
+        ) : tab === "sessions" && scope.kind === "project" ? (
+          <SessionsPanel key={`${scope.id}:sessions`} projectId={scope.id} />
         ) : tab === "output_styles" ? (
           <OutputStylesPanel key={`${scope.id}:output_styles`} scope={ref} />
         ) : tab === "plugins" ? (
