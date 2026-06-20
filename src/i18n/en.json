@@ -84,5 +84,19 @@
   "usage.byModel": "By model",
   "welcome.title": "Welcome to Claude Copilot",
   "welcome.body": "This app manages your Claude Code configuration in ~/.claude. Provider credentials are stored independently here (in your OS keychain) and, in v0.1, are not shared with the VSCode extension — re-add any API profiles you need under Providers.",
-  "welcome.dismiss": "Get started"
+  "welcome.dismiss": "Get started",
+  "settings.title": "Settings",
+  "settings.layer.project": "Project",
+  "settings.layer.local": "Local",
+  "settings.model": "Model",
+  "settings.permissionsAllow": "Permissions · Allow",
+  "settings.permissionsAsk": "Permissions · Ask",
+  "settings.permissionsDeny": "Permissions · Deny",
+  "settings.additionalDirs": "Additional directories",
+  "settings.raw": "Raw JSON",
+  "settings.form": "Form",
+  "settings.addPlaceholder": "add… (Enter)",
+  "settings.invalidJson": "Invalid JSON",
+  "settings.saved": "Saved",
+  "settings.rawHint": "Switch to Raw JSON to edit other settings."
 }
