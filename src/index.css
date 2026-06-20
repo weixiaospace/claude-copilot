@@ -1,7 +1,54 @@
 @import "tailwindcss";
 
+/* Manual dark mode: `dark:` utilities respond to a `.dark` class on <html>,
+   not the OS media query — so the in-app theme toggle (system/light/dark)
+   drives the whole app. See src/lib/theme.ts. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Warm "Claude" palette. Redefining the neutral ramp repaints the entire app
+   at once: every existing bg-neutral, text-neutral and border-neutral utility
+   (and their dark variants) shifts from cold grey to warm ivory/clay. The
+   accent is the Claude terracotta, reserved for identity + state: active tab,
+   selected row, focus ring, primary actions, the wordmark mark. */
+@theme {
+  --color-neutral-50: #faf9f5;
+  --color-neutral-100: #f1efe7;
+  --color-neutral-200: #e8e4da;
+  --color-neutral-300: #d8d3c7;
+  --color-neutral-400: #a8a199;
+  --color-neutral-500: #847e74;
+  --color-neutral-600: #69635a;
+  --color-neutral-700: #3f3b35;
+  --color-neutral-800: #2b2925;
+  --color-neutral-900: #211f1c;
+  --color-neutral-950: #1a1916;
+
+  --color-accent: #d97757;
+  --color-accent-hover: #c45f3f;
+  --color-accent-soft: #f6e6dd;
+  --color-accent-soft-dark: #3a2a23;
+
+  /* Unified type scale — bumped up one notch from Tailwind defaults for a
+     comfortable, consistent reading size across every page. The whole app uses
+     text-xs/sm/base, so redefining the tokens here resizes it in one place.
+     Roles: title = text-base/600, body+controls = text-sm, secondary = text-xs. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.25rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.4rem;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.6rem;
+}
+
 :root {
   color-scheme: light dark;
+}
+/* Match native chrome (scrollbars, form controls) to the active theme. */
+html:not(.dark) {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
 }
 
 html,
@@ -11,7 +58,39 @@ body,
   margin: 0;
 }
 
+/* Kill the native webview rubber-band / overscroll. The app scrolls inside its
+   own panels (overflow-auto regions); the document itself never should. */
+html,
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Accent focus ring, app-wide. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Form controls: typed values must read at full strength. Tailwind's reset sets
+   `color: inherit` on form elements, so a value would otherwise inherit the
+   muted label colour and look like placeholder text. Placeholders stay muted. */
+input,
+textarea,
+select {
+  color: var(--color-neutral-900);
+}
+.dark input,
+.dark textarea,
+.dark select {
+  color: var(--color-neutral-100);
+}
+::placeholder {
+  color: var(--color-neutral-400);
+  opacity: 1;
 }

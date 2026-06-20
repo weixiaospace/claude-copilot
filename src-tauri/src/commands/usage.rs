@@ -53,6 +53,12 @@ fn records_in_dir(dir: &Path, out: &mut Vec<UsageRecord>) -> u32 {
         };
         sessions += 1;
         for line in BufReader::new(file).lines().map_while(Result::ok) {
+            // Cheap pre-filter: only lines carrying a token `usage` block can
+            // yield a record. Skips the JSON parse for the bulk of the transcript
+            // (user/summary/tool lines) — the dominant cost on large histories.
+            if !line.contains("\"usage\"") {
+                continue;
+            }
             if let Ok(v) = serde_json::from_str::<Value>(&line) {
                 if let Some(r) = usage::extract_record(&v) {
                     out.push(r);

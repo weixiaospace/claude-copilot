@@ -36,6 +36,7 @@ Claude Copilot 是一个 [Tauri 2](https://tauri.app) 桌面客户端,把 Claude
 | **Settings** | 高频字段的类型化控件 + 长尾字段的结构化编辑器 | User · Project |
 | **Usage** | 用量统计 | User · Project |
 | **Sessions** | 列出该项目的会话,可在终端**续接**已有会话或**新开**会话,也支持用 `happy` 命令打开终端 | 仅 Project |
+| **订阅登录** | 在「接入」页面检测 Claude 订阅登录状态(读取 `~/.claude/.credentials.json`),未登录时打开浏览器登录,已登录时显示订阅信息 | — |
 
 **Provider 凭据管理(🔑)** —— 侧栏顶部钉了一个全局入口。这是全应用**唯一**不映射 Claude Code 自身配置的地方:它是本应用自己的凭据库,支持 Anthropic / Bedrock / Vertex / Foundry 四类 profile,密钥存进**系统钥匙串**,profile 元数据存在应用自有的 `profiles.json`(v0.1 不读写 VSCode 扩展的旧 `providers.json`,互不干预)。激活一个 profile 会把对应的 `env` 写进所选作用域——项目写进 **Local** 层(密钥不进版本库),User 写进 `~/.claude/settings.json`。应用本身不存"哪个 profile 当前激活",而是在读取时用作用域里的 `env` token 去**比对**各 profile 的钥匙串密钥,反推出激活态。
 

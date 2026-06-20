@@ -3,13 +3,14 @@ import type { FileResource } from "../types/FileResource";
 import { t } from "../lib/i18n";
 import { ResourceList } from "./ResourceList";
 import { ResourceDetail } from "./ResourceDetail";
-import { Button } from "./ui/button";
+import { PanelHeader } from "./PanelHeader";
+import { CreateNameDialog } from "./CreateNameDialog";
 
 /**
  * Generic panel for any file-backed resource kind. Behaviour is injected via
  * callbacks so the typed `invoke` stays at the call site (ResourceArea); mount
  * is keyed by scope+kind so state resets on switch. `create` is omitted for
- * read-mostly kinds (e.g. Workflows).
+ * read-only kinds.
  */
 export function ResourcePanel({
   load,
@@ -25,7 +26,7 @@ export function ResourcePanel({
   const [items, setItems] = useState<FileResource[]>([]);
   const [selected, setSelected] = useState<FileResource | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
 
   async function refresh() {
     try {
@@ -41,19 +42,6 @@ export function ResourcePanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function onCreate() {
-    if (!create) return;
-    const name = newName.trim();
-    if (!name) return;
-    try {
-      await create(name);
-      setNewName("");
-      await refresh();
-    } catch (e) {
-      setError(String(e));
-    }
-  }
-
   async function onRemove(resource: FileResource) {
     try {
       if (await remove(resource)) {
@@ -67,25 +55,10 @@ export function ResourcePanel({
 
   return (
     <div class="flex h-full flex-col">
-      <div class="flex items-center gap-2 px-6 py-3">
-        {create && (
-          <>
-            <input
-              class="w-56 rounded-md border border-neutral-200 bg-transparent px-2 py-1 text-sm dark:border-neutral-700"
-              placeholder={namePlaceholder}
-              value={newName}
-              onInput={(e) => setNewName((e.target as HTMLInputElement).value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void onCreate();
-              }}
-            />
-            <Button onClick={() => void onCreate()}>{t("resource.create")}</Button>
-          </>
-        )}
-        <Button variant="ghost" onClick={() => void refresh()}>
-          {t("resource.refresh")}
-        </Button>
-      </div>
+      <PanelHeader
+        onRefresh={() => void refresh()}
+        onCreate={create ? () => setCreating(true) : undefined}
+      />
 
       {error && <div class="px-6 pb-1 text-sm text-red-500">{error}</div>}
 
@@ -99,6 +72,19 @@ export function ResourcePanel({
         onChanged={refresh}
         onDelete={onRemove}
       />
+
+      {create && (
+        <CreateNameDialog
+          open={creating}
+          title={t("resource.create")}
+          placeholder={namePlaceholder}
+          onClose={() => setCreating(false)}
+          onCreate={async (name) => {
+            await create(name);
+            await refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

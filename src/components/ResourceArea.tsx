@@ -35,17 +35,43 @@ type TabKey =
   | "sessions";
 type ResourceTabKey = "skills" | "agents" | "workflows" | "rules";
 
-const BASE_TABS: { key: TabKey; label: string }[] = [
+type Tab = { key: TabKey; label: string };
+
+// Order: 会话 → 技能 → MCP → (其余资源) → 记忆 → 用量 → 设置. Sessions/Memory are
+// project-only; Plugins is user-only and sits in the "其余" middle group.
+const HEAD_TABS: Tab[] = [
   { key: "skills", label: "resource.skills" },
+  { key: "mcp", label: "mcp.title" },
+];
+const MIDDLE_TABS: Tab[] = [
   { key: "agents", label: "resource.agents" },
   { key: "workflows", label: "resource.workflows" },
   { key: "rules", label: "resource.rules" },
   { key: "output_styles", label: "resource.outputStyles" },
   { key: "hooks", label: "hooks.title" },
-  { key: "mcp", label: "mcp.title" },
+];
+const TAIL_TABS: Tab[] = [
   { key: "usage", label: "usage.title" },
   { key: "settings", label: "settings.title" },
 ];
+
+function tabsFor(scope: Scope): Tab[] {
+  if (scope.kind === "project") {
+    return [
+      { key: "sessions", label: "resource.sessions" },
+      ...HEAD_TABS,
+      ...MIDDLE_TABS,
+      { key: "memory", label: "resource.memory" },
+      ...TAIL_TABS,
+    ];
+  }
+  return [
+    { key: "plugins", label: "plugins.title" },
+    ...HEAD_TABS,
+    ...MIDDLE_TABS,
+    ...TAIL_TABS,
+  ];
+}
 
 interface PanelProps {
   load: () => Promise<FileResource[]>;
@@ -98,6 +124,7 @@ function panelProps(tab: ResourceTabKey, scope: ScopeRef): PanelProps {
     case "workflows":
       return {
         load: () => invoke("list_workflows", { scope }),
+        create: (name) => invoke("create_workflow", { scope, name }),
         remove: deleteFile,
         namePlaceholder,
       };
@@ -111,26 +138,21 @@ function panelProps(tab: ResourceTabKey, scope: ScopeRef): PanelProps {
  */
 export function ResourceArea({ scope }: { scope: Scope }) {
   const ref = toScopeRef(scope);
-  const tabs =
-    scope.kind === "project"
-      ? [
-          ...BASE_TABS,
-          { key: "memory" as TabKey, label: "resource.memory" },
-          { key: "sessions" as TabKey, label: "resource.sessions" },
-        ]
-      : [...BASE_TABS, { key: "plugins" as TabKey, label: "plugins.title" }];
-  const [tab, setTab] = useState<TabKey>("skills");
+  const tabs = tabsFor(scope);
+  const [tab, setTab] = useState<TabKey>(
+    scope.kind === "project" ? "sessions" : "plugins",
+  );
 
   return (
     <div class="flex h-full flex-col">
-      <div class="flex gap-4 border-b border-neutral-200 px-6 dark:border-neutral-800">
+      <div class="flex gap-4 overflow-x-auto border-b border-neutral-200 px-6 dark:border-neutral-800">
         {tabs.map((tb) => (
           <button
             key={tb.key}
             class={
-              "-mb-px border-b-2 px-1 py-2 text-sm font-medium transition-colors " +
+              "-mb-px shrink-0 whitespace-nowrap border-b-2 px-1 py-2 text-sm font-medium transition-colors " +
               (tab === tb.key
-                ? "border-neutral-900 text-neutral-900 dark:border-white dark:text-white"
+                ? "border-accent text-accent"
                 : "border-transparent text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200")
             }
             onClick={() => setTab(tb.key)}

@@ -2,6 +2,7 @@
 //! readers for Claude Code's project list. All filesystem I/O for scopes lives
 //! here; the pure logic is in `claude_copilot_core::projects`.
 
+use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -10,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use claude_copilot_core::projects::ManualProject;
+use claude_copilot_core::scopes::ScopeRef;
 
 /// Slice 2 only needs `manual_projects`; `ui` is preserved opaquely so later
 /// slices (i18n, window state) can own it without clobbering this one.
@@ -23,6 +25,10 @@ pub struct State {
     pub granted_paths: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ui: Option<Value>,
+    /// Scope → active profile id cache. Avoids reading the OS keychain on every
+    /// startup just to derive which profile is active for a scope (ADR-0001).
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub active_providers: HashMap<String, String>,
 }
 
 fn state_path(home: &Path) -> PathBuf {
@@ -93,6 +99,78 @@ pub fn set_welcome_seen(home: &Path) -> Result<(), String> {
         }
         None => return Err("state.json#ui is not an object".to_string()),
     }
+    save(home, &st)
+}
+
+/// Insert/replace a single `ui` field, preserving the rest. Shared by the
+/// per-key UI setters below.
+fn set_ui_field(home: &Path, key: &str, value: Value) -> Result<(), String> {
+    let mut st = load(home)?;
+    let ui = st.ui.get_or_insert_with(|| Value::Object(Default::default()));
+    match ui.as_object_mut() {
+        Some(obj) => {
+            obj.insert(key.to_string(), value);
+        }
+        None => return Err("state.json#ui is not an object".to_string()),
+    }
+    save(home, &st)
+}
+
+/// Read `ui.theme` ("system" | "light" | "dark"), or `None` if unset.
+pub fn get_theme(home: &Path) -> Result<Option<String>, String> {
+    let st = load(home)?;
+    Ok(st
+        .ui
+        .as_ref()
+        .and_then(|ui| ui.get("theme"))
+        .and_then(Value::as_str)
+        .map(String::from))
+}
+
+/// Set `ui.theme`, preserving any other `ui` fields.
+pub fn set_theme(home: &Path, theme: &str) -> Result<(), String> {
+    set_ui_field(home, "theme", Value::String(theme.to_string()))
+}
+
+/// Read `ui.sidebarWidth` (px), or `None` if unset.
+pub fn get_sidebar_width(home: &Path) -> Result<Option<f64>, String> {
+    let st = load(home)?;
+    Ok(st
+        .ui
+        .as_ref()
+        .and_then(|ui| ui.get("sidebarWidth"))
+        .and_then(Value::as_f64))
+}
+
+/// Set `ui.sidebarWidth` (px), preserving any other `ui` fields.
+pub fn set_sidebar_width(home: &Path, width: f64) -> Result<(), String> {
+    set_ui_field(home, "sidebarWidth", serde_json::json!(width))
+}
+
+fn scope_key(scope: &ScopeRef) -> String {
+    match scope {
+        ScopeRef::User => "user".to_string(),
+        ScopeRef::Project { id } => id.clone(),
+    }
+}
+
+/// Read the cached active profile id for a scope, if any.
+pub fn get_active_provider_id(home: &Path, scope: &ScopeRef) -> Result<Option<String>, String> {
+    let st = load(home)?;
+    Ok(st.active_providers.get(&scope_key(scope)).cloned())
+}
+
+/// Cache the active profile id for a scope so startup can avoid keychain reads.
+pub fn set_active_provider_id(home: &Path, scope: &ScopeRef, profile_id: &str) -> Result<(), String> {
+    let mut st = load(home)?;
+    st.active_providers.insert(scope_key(scope), profile_id.to_string());
+    save(home, &st)
+}
+
+/// Remove the cached active profile id for a scope (e.g., on deactivation).
+pub fn clear_active_provider_id(home: &Path, scope: &ScopeRef) -> Result<(), String> {
+    let mut st = load(home)?;
+    st.active_providers.remove(&scope_key(scope));
     save(home, &st)
 }
 

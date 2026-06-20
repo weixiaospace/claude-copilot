@@ -90,6 +90,51 @@ pub fn open_terminal(
     open_terminal_at(&project_id, &command)
 }
 
+/// Open the project folder in an external editor / app. `app` is allowlisted.
+/// VS Code / Zed try their CLI first, then (macOS) `open -a`; cmux has no
+/// path-accepting CLI so it always goes through the macOS app.
+#[tauri::command]
+pub fn open_in_app(project_id: String, app: String) -> Result<(), String> {
+    files::reject_if_outside(&home_dir()?, &project_id)?;
+    match app.as_str() {
+        "vscode" => open_editor_cli("code", &project_id, "Visual Studio Code"),
+        "zed" => open_editor_cli("zed", &project_id, "Zed"),
+        "cmux" => open_macos_app("cmux", &project_id),
+        other => Err(format!("unknown app: {other}")),
+    }
+}
+
+/// Try the editor's CLI (`bin <path>`); on macOS fall back to `open -a` when the
+/// CLI isn't on PATH (VS Code / Zed often aren't until the user installs it).
+fn open_editor_cli(bin: &str, path: &str, mac_app: &str) -> Result<(), String> {
+    if std::process::Command::new(bin).arg(path).spawn().is_ok() {
+        return Ok(());
+    }
+    let _ = mac_app;
+    #[cfg(target_os = "macos")]
+    if open_macos_app(mac_app, path).is_ok() {
+        return Ok(());
+    }
+    Err(format!(
+        "failed to launch {bin}; is it installed and on PATH?"
+    ))
+}
+
+#[cfg(target_os = "macos")]
+fn open_macos_app(app: &str, path: &str) -> Result<(), String> {
+    std::process::Command::new("open")
+        .args(["-a", app])
+        .arg(path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("failed to open {app}: {e}"))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn open_macos_app(app: &str, _path: &str) -> Result<(), String> {
+    Err(format!("{app} is only available on macOS"))
+}
+
 #[cfg(target_os = "macos")]
 fn open_terminal_at(dir: &str, command: &str) -> Result<(), String> {
     let shell = format!("cd '{}' && {}", dir.replace('\'', "'\\''"), command);

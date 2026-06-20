@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+pub mod auth;
 pub mod files;
 pub mod hooks;
 pub mod mcp;

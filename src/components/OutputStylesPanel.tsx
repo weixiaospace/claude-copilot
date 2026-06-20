@@ -1,11 +1,13 @@
 import { useEffect, useState } from "preact/hooks";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { Star } from "lucide-preact";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { FileResource } from "../types/FileResource";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
 import { ResourceDetail } from "./ResourceDetail";
-import { Button } from "./ui/button";
+import { PanelHeader } from "./PanelHeader";
+import { CreateNameDialog } from "./CreateNameDialog";
 
 /**
  * Output Styles: a file-backed resource (like the others) plus a per-scope
@@ -18,7 +20,7 @@ export function OutputStylesPanel({ scope }: { scope: ScopeRef }) {
   const [active, setActive] = useState<string | null>(null);
   const [selected, setSelected] = useState<FileResource | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
 
   async function refresh() {
     try {
@@ -39,18 +41,6 @@ export function OutputStylesPanel({ scope }: { scope: ScopeRef }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function onCreate() {
-    const name = newName.trim();
-    if (!name) return;
-    try {
-      await invoke("create_output_style", { scope, name });
-      setNewName("");
-      await refresh();
-    } catch (e) {
-      setError(String(e));
-    }
-  }
-
   async function setActiveStyle(name: string) {
     try {
       await invoke("set_active_output_style", { scope, name });
@@ -70,21 +60,7 @@ export function OutputStylesPanel({ scope }: { scope: ScopeRef }) {
 
   return (
     <div class="flex h-full flex-col">
-      <div class="flex items-center gap-2 px-6 py-3">
-        <input
-          class="w-56 rounded-md border border-neutral-200 bg-transparent px-2 py-1 text-sm dark:border-neutral-700"
-          placeholder={t("resource.namePlaceholder")}
-          value={newName}
-          onInput={(e) => setNewName((e.target as HTMLInputElement).value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void onCreate();
-          }}
-        />
-        <Button onClick={() => void onCreate()}>{t("resource.create")}</Button>
-        <Button variant="ghost" onClick={() => void refresh()}>
-          {t("resource.refresh")}
-        </Button>
-      </div>
+      <PanelHeader onRefresh={() => void refresh()} onCreate={() => setCreating(true)} />
 
       {error && <div class="px-6 pb-1 text-sm text-red-500">{error}</div>}
 
@@ -103,9 +79,11 @@ export function OutputStylesPanel({ scope }: { scope: ScopeRef }) {
                   >
                     <div class="flex items-center gap-2 text-sm font-medium">
                       {isActive && (
-                        <span class="text-amber-500" title={t("outputStyle.active")}>
-                          ★
-                        </span>
+                        <Star
+                          size={14}
+                          class="fill-accent text-accent"
+                          aria-label={t("outputStyle.active")}
+                        />
                       )}
                       {r.name}
                     </div>
@@ -133,6 +111,17 @@ export function OutputStylesPanel({ scope }: { scope: ScopeRef }) {
         onClose={() => setSelected(null)}
         onChanged={refresh}
         onDelete={onRemove}
+      />
+
+      <CreateNameDialog
+        open={creating}
+        title={t("resource.create")}
+        placeholder={t("resource.namePlaceholder")}
+        onClose={() => setCreating(false)}
+        onCreate={async (name) => {
+          await invoke("create_output_style", { scope, name });
+          await refresh();
+        }}
       />
     </div>
   );

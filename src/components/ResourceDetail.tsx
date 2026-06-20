@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import { X } from "lucide-preact";
 import type { FileResource } from "../types/FileResource";
 import { invoke } from "../lib/ipc";
 import { renderMarkdown } from "../lib/markdown";
@@ -58,17 +59,18 @@ export function ResourceDetail({
     <dialog
       ref={ref}
       onClose={onClose}
-      class="m-auto w-[min(90vw,720px)] rounded-lg bg-white p-0 text-neutral-900 backdrop:bg-black/40 dark:bg-neutral-900 dark:text-neutral-100"
+      class="m-auto w-[min(90vw,720px)] rounded-lg bg-neutral-50 p-0 text-neutral-900 backdrop:bg-black/40 dark:bg-neutral-900 dark:text-neutral-100"
     >
       {resource && (
         <div class="flex max-h-[80vh] flex-col">
           <header class="flex items-center justify-between gap-4 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
             <h2 class="truncate text-sm font-semibold">{resource.name}</h2>
             <button
-              class="text-neutral-400 hover:text-neutral-700 dark:hover:text-white"
+              class="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-white"
+              aria-label="Close"
               onClick={() => ref.current?.close()}
             >
-              ✕
+              <X size={18} />
             </button>
           </header>
 

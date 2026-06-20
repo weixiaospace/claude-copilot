@@ -1,12 +1,19 @@
 import { useEffect, useState } from "preact/hooks";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { X } from "lucide-preact";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { McpServer } from "../types/McpServer";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
+import { PanelHeader } from "./PanelHeader";
+import { Modal } from "./ui/Modal";
+import { Select } from "./ui/Select";
 import { Button } from "./ui/button";
 
 type Group = { source: string; servers: McpServer[] };
+
+const inputClass =
+  "w-full rounded-md border border-neutral-200 bg-transparent px-3 py-2 text-sm dark:border-neutral-700";
 
 function groupBySource(servers: McpServer[]): Group[] {
   const groups: Group[] = [];
@@ -26,6 +33,7 @@ function groupBySource(servers: McpServer[]): Group[] {
 export function McpPanel({ scope }: { scope: ScopeRef }) {
   const [servers, setServers] = useState<McpServer[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
   const [transport, setTransport] = useState("stdio");
@@ -52,6 +60,7 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
       await invoke("add_mcp", { scope, name: name.trim(), transport, target: target.trim() });
       setName("");
       setTarget("");
+      setCreating(false);
       await refresh();
     } catch (e) {
       setError(String(e));
@@ -72,36 +81,7 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
 
   return (
     <div class="flex h-full flex-col">
-      <div class="flex flex-wrap items-center gap-2 px-6 py-3">
-        <input
-          class="w-40 rounded-md border border-neutral-200 bg-transparent px-2 py-1 text-sm dark:border-neutral-700"
-          placeholder={t("mcp.namePlaceholder")}
-          value={name}
-          onInput={(e) => setName((e.target as HTMLInputElement).value)}
-        />
-        <select
-          class="rounded-md border border-neutral-200 bg-transparent px-2 py-1 text-sm dark:border-neutral-700"
-          value={transport}
-          onChange={(e) => setTransport((e.target as HTMLSelectElement).value)}
-        >
-          <option value="stdio">stdio</option>
-          <option value="sse">sse</option>
-          <option value="http">http</option>
-        </select>
-        <input
-          class="min-w-0 flex-1 rounded-md border border-neutral-200 bg-transparent px-2 py-1 text-sm dark:border-neutral-700"
-          placeholder={t("mcp.targetPlaceholder")}
-          value={target}
-          onInput={(e) => setTarget((e.target as HTMLInputElement).value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void add();
-          }}
-        />
-        <Button onClick={() => void add()}>{t("resource.create")}</Button>
-        <Button variant="ghost" onClick={() => void refresh()}>
-          {t("resource.refresh")}
-        </Button>
-      </div>
+      <PanelHeader onRefresh={() => void refresh()} onCreate={() => setCreating(true)} />
 
       {error && <div class="px-6 pb-1 text-sm text-red-500">{error}</div>}
 
@@ -130,12 +110,12 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
                     {s.url ?? s.command ?? ""}
                   </span>
                   <button
-                    class="shrink-0 text-xs text-neutral-400 hover:text-red-500"
+                    class="shrink-0 text-neutral-400 hover:text-red-500"
                     title={t("mcp.remove")}
                     aria-label={t("mcp.remove")}
                     onClick={() => void remove(s)}
                   >
-                    ✕
+                    <X size={15} />
                   </button>
                 </li>
               ))}
@@ -143,6 +123,54 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
           </section>
         ))}
       </div>
+
+      <Modal
+        open={creating}
+        onClose={() => setCreating(false)}
+        title={t("mcp.title")}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setCreating(false)}>
+              {t("providers.cancel")}
+            </Button>
+            <Button onClick={() => void add()}>{t("resource.create")}</Button>
+          </>
+        }
+      >
+        <div class="flex flex-col gap-3">
+          <label class="flex flex-col gap-1 text-xs text-neutral-500">
+            {t("mcp.namePlaceholder")}
+            <input
+              autofocus
+              class={inputClass}
+              value={name}
+              onInput={(e) => setName((e.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label class="flex flex-col gap-1 text-xs text-neutral-500">
+            {t("providers.kind")}
+            <Select
+              value={transport}
+              onChange={(e) => setTransport((e.target as HTMLSelectElement).value)}
+            >
+              <option value="stdio">stdio</option>
+              <option value="sse">sse</option>
+              <option value="http">http</option>
+            </Select>
+          </label>
+          <label class="flex flex-col gap-1 text-xs text-neutral-500">
+            {t("mcp.targetPlaceholder")}
+            <input
+              class={inputClass}
+              value={target}
+              onInput={(e) => setTarget((e.target as HTMLInputElement).value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void add();
+              }}
+            />
+          </label>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -50,7 +50,8 @@ pub struct BundledResource {
     pub path: String,
 }
 
-/// A plugin offered by a marketplace (from the catalog cache).
+/// A plugin offered by a marketplace (from the catalog cache). The description /
+/// version / author are best-effort — empty when the catalog entry omits them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[ts(export, export_to = "../../src/types/")]
 pub struct AvailablePlugin {
@@ -58,6 +59,9 @@ pub struct AvailablePlugin {
     pub name: String,
     pub marketplace: String,
     pub installed: bool,
+    pub description: String,
+    pub version: String,
+    pub author: String,
 }
 
 fn split_id(id: &str) -> (String, String) {
@@ -152,13 +156,26 @@ pub fn parse_catalog(catalog: &Value, installed_ids: &[String]) -> Vec<Available
     else {
         return out;
     };
-    for id in map.keys() {
+    for (id, entry) in map {
         let (name, marketplace) = split_id(id);
+        let s = |k: &str| entry.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
+        // `author` may be a string or an object like `{ "name": "…" }`.
+        let author = entry
+            .get("author")
+            .and_then(|a| {
+                a.as_str()
+                    .map(String::from)
+                    .or_else(|| a.get("name").and_then(Value::as_str).map(String::from))
+            })
+            .unwrap_or_default();
         out.push(AvailablePlugin {
             id: id.clone(),
             name,
             marketplace,
             installed: installed_ids.iter().any(|x| x == id),
+            description: s("description"),
+            version: s("version"),
+            author,
         });
     }
     out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
@@ -214,5 +231,26 @@ mod tests {
         assert_eq!(got.len(), 2);
         assert!(got.iter().find(|p| p.name == "alpha").unwrap().installed);
         assert!(!got.iter().find(|p| p.name == "gamma").unwrap().installed);
+    }
+
+    #[test]
+    fn parses_catalog_metadata_best_effort() {
+        let catalog = json!({ "catalog": { "plugins": {
+            "alpha@official": {
+                "description": "Reviews your changes",
+                "version": "2.1.0",
+                "author": { "name": "Acme" }
+            },
+            "gamma@official": {}
+        }}});
+        let got = parse_catalog(&catalog, &[]);
+        let alpha = got.iter().find(|p| p.name == "alpha").unwrap();
+        assert_eq!(alpha.description, "Reviews your changes");
+        assert_eq!(alpha.version, "2.1.0");
+        assert_eq!(alpha.author, "Acme");
+        // Missing metadata degrades to empty strings, never panics.
+        let gamma = got.iter().find(|p| p.name == "gamma").unwrap();
+        assert_eq!(gamma.description, "");
+        assert_eq!(gamma.author, "");
     }
 }

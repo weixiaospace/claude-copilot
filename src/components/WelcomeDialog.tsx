@@ -17,7 +17,7 @@ export function WelcomeDialog({ open, onClose }: { open: boolean; onClose: () =>
     <dialog
       ref={ref}
       onClose={onClose}
-      class="m-auto w-[min(90vw,520px)] rounded-lg bg-white p-0 text-neutral-900 backdrop:bg-black/40 dark:bg-neutral-900 dark:text-neutral-100"
+      class="m-auto w-[min(90vw,520px)] rounded-lg bg-neutral-50 p-0 text-neutral-900 backdrop:bg-black/40 dark:bg-neutral-900 dark:text-neutral-100"
     >
       <div class="flex flex-col gap-4 p-6">
         <h2 class="text-base font-semibold">{t("welcome.title")}</h2>

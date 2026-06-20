@@ -1,7 +1,9 @@
 import { useEffect, useState } from "preact/hooks";
+import { Play } from "lucide-preact";
 import type { Session } from "../types/Session";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
+import { PanelHeader } from "./PanelHeader";
 import { Button } from "./ui/button";
 
 /** Project sessions: list transcripts and resume / start one in a terminal. */
@@ -32,16 +34,20 @@ export function SessionsPanel({ projectId }: { projectId: string }) {
 
   return (
     <div class="flex h-full flex-col">
-      <div class="flex items-center gap-2 px-6 py-3">
-        <Button onClick={() => void open("claude", null)}>▶ {t("sessions.new")}</Button>
-        <Button variant="ghost" onClick={() => void open("happy", null)}>
-          happy
-        </Button>
-        <div class="flex-1" />
-        <Button variant="ghost" onClick={() => void refresh()}>
-          {t("resource.refresh")}
-        </Button>
-      </div>
+      <PanelHeader
+        onRefresh={() => void refresh()}
+        extra={
+          <>
+            <Button onClick={() => void open("claude", null)}>
+              <Play size={15} class="mr-1" />
+              {t("sessions.new")}
+            </Button>
+            <Button variant="ghost" onClick={() => void open("happy", null)}>
+              happy
+            </Button>
+          </>
+        }
+      />
 
       {error && <div class="px-6 pb-1 text-sm text-red-500">{error}</div>}
 

@@ -1,8 +1,12 @@
 import { useEffect, useState } from "preact/hooks";
+import { X } from "lucide-preact";
 import type { Scope } from "../types/Scope";
 import type { ScopeRef } from "../types/ScopeRef";
 import { invoke } from "../lib/ipc";
+import { providersTick } from "../lib/signals";
 import { t } from "../lib/i18n";
+import { PanelHeader } from "./PanelHeader";
+import { Segmented } from "./ui/Segmented";
 import { Button } from "./ui/button";
 
 type Doc = Record<string, unknown>;
@@ -45,9 +49,10 @@ function StringListEditor({
               <span class="font-mono">{v}</span>
               <button
                 class="text-neutral-400 hover:text-red-500"
+                aria-label={t("detail.delete")}
                 onClick={() => onChange(values.filter((_, j) => j !== i))}
               >
-                ✕
+                <X size={13} />
               </button>
             </span>
           ))}
@@ -88,8 +93,9 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
         setStatus(null);
       })
       .catch((e) => setError(String(e)));
+    // Re-read when an activation elsewhere rewrites this scope's env block.
     // eslint-disable-next-line
-  }, [layer, scope.id]);
+  }, [layer, scope.id, providersTick.value]);
 
   const permissions = asObject(doc.permissions);
   const setPerm = (key: string, vals: string[]) =>
@@ -143,31 +149,25 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
 
   return (
     <div class="flex h-full flex-col">
-      <div class="flex items-center gap-2 px-6 py-3">
-        {layers.length > 1 && (
-          <div class="inline-flex rounded-md border border-neutral-200 p-0.5 text-xs dark:border-neutral-800">
-            {layers.map((l) => (
-              <button
-                key={l}
-                class={
-                  "rounded px-2 py-0.5 " +
-                  (layer === l
-                    ? "bg-neutral-100 dark:bg-neutral-800"
-                    : "text-neutral-500 hover:text-neutral-900 dark:hover:text-white")
-                }
-                onClick={() => setLayer(l)}
-              >
-                {t(`settings.layer.${l}`)}
-              </button>
-            ))}
-          </div>
-        )}
-        <div class="flex-1" />
-        <Button variant="ghost" onClick={toggleRaw}>
-          {raw ? t("settings.form") : t("settings.raw")}
-        </Button>
-        <Button onClick={() => void save()}>{t("detail.save")}</Button>
-      </div>
+      <PanelHeader
+        extra={
+          layers.length > 1 ? (
+            <Segmented
+              value={layer}
+              onChange={setLayer}
+              options={layers.map((l) => ({ value: l, label: t(`settings.layer.${l}`) }))}
+            />
+          ) : undefined
+        }
+        actions={
+          <>
+            <Button variant="ghost" onClick={toggleRaw}>
+              {raw ? t("settings.form") : t("settings.raw")}
+            </Button>
+            <Button onClick={() => void save()}>{t("detail.save")}</Button>
+          </>
+        }
+      />
 
       {error && <div class="px-6 pb-1 text-sm text-red-500">{error}</div>}
       {status && <div class="px-6 pb-1 text-sm text-green-600">{status}</div>}

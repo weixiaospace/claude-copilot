@@ -1,78 +1,112 @@
-import { useEffect, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
+import { Check, ChevronDown, Plug } from "lucide-preact";
 import type { Scope } from "../types/Scope";
 import type { ScopeRef } from "../types/ScopeRef";
-import type { Profile } from "../types/Profile";
-import type { ActiveProvider } from "../types/ActiveProvider";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
+import { activeByScope, appView, profiles, providersTick, reloadActiveProfiles } from "../lib/signals";
 
 function toScopeRef(scope: Scope): ScopeRef {
   return scope.kind === "user" ? { kind: "user" } : { kind: "project", id: scope.id };
 }
 
-const SUBSCRIPTION = "__subscription";
-const UNMANAGED = "__unmanaged";
+function MenuItem({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+      onClick={onClick}
+    >
+      <Check size={14} class={"shrink-0 " + (active ? "text-accent" : "opacity-0")} />
+      <span class="truncate">{label}</span>
+    </button>
+  );
+}
 
-/** Per-scope provider activation: shows the active provider for the selected
- * scope and lets the user switch it (writes/clears the env block). */
+/**
+ * Header quick-switch for the scope's active provider (接入). Shows the current
+ * profile / subscription / external state and a dropdown to switch it. Reads the
+ * shared `activeByScope`/`profiles` signals so it stays in sync with the sidebar.
+ */
 export function ProviderActivation({ scope }: { scope: Scope }) {
   const ref = toScopeRef(scope);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [active, setActive] = useState<ActiveProvider | null>(null);
+  const [open, setOpen] = useState(false);
+  const active = activeByScope.value[scope.id];
+  const ps = profiles.value;
 
-  async function load() {
-    try {
-      const [ps, a] = await Promise.all([
-        invoke("list_profiles"),
-        invoke("get_active_profile", { scope: ref }),
-      ]);
-      setProfiles(ps);
-      setActive(a);
-    } catch {
-      // keep the header quiet on failure
-    }
-  }
-  useEffect(() => {
-    void load();
-    // eslint-disable-next-line
-  }, [scope.id]);
-
-  // Nothing to choose and nothing unusual to show.
-  if (profiles.length === 0 && active?.state !== "unmanaged") return null;
-
-  const value =
+  const activeName =
     active?.state === "profile"
-      ? active.id
+      ? (ps.find((p) => p.id === active.id)?.name ?? t("activation.unmanaged"))
       : active?.state === "unmanaged"
-        ? UNMANAGED
-        : SUBSCRIPTION;
+        ? t("activation.unmanaged")
+        : t("activation.subscription");
 
-  async function onChange(v: string) {
+  async function choose(action: () => Promise<unknown>) {
+    setOpen(false);
     try {
-      if (v === SUBSCRIPTION) await invoke("deactivate_provider", { scope: ref });
-      else if (v !== UNMANAGED) await invoke("activate_profile", { id: v, scope: ref });
-      await load();
+      await action();
+      await reloadActiveProfiles();
+      providersTick.value++; // nudge SettingsPanel (env block changed) to re-read
     } catch (e) {
       console.error("activation failed", e);
     }
   }
 
   return (
-    <label class="flex items-center gap-1 text-xs text-neutral-500">
-      <span>{t("activation.label")}</span>
-      <select
-        class="rounded-md border border-neutral-200 bg-transparent px-2 py-1 text-xs dark:border-neutral-700"
-        value={value}
-        onChange={(e) => void onChange((e.target as HTMLSelectElement).value)}
+    <div class="relative">
+      <button
+        class="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-700 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        title={t("activation.label")}
+        onClick={() => setOpen((v) => !v)}
       >
-        {active?.state === "unmanaged" && (
-          <option value={UNMANAGED}>{t("activation.unmanaged")}</option>
-        )}
-        <option value={SUBSCRIPTION}>{t("activation.subscription")}</option>
-        {profiles.map((p) => (
-          <option value={p.id}>{p.name}</option>
-        ))}
-      </select>
-    </label>
+        <Plug size={15} class="shrink-0 text-neutral-400" />
+        <span class="max-w-44 truncate">{activeName}</span>
+        <ChevronDown size={14} class="shrink-0 text-neutral-400" />
+      </button>
+
+      {open && (
+        <>
+          <div class="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div class="absolute right-0 top-full z-20 mt-1 min-w-52 overflow-hidden rounded-md border border-neutral-200 bg-neutral-50 py-1 text-sm shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+            <MenuItem
+              label={t("activation.subscription")}
+              active={!active || active.state === "subscription"}
+              onClick={() => void choose(() => invoke("deactivate_provider", { scope: ref }))}
+            />
+            {active?.state === "unmanaged" && (
+              <MenuItem label={t("activation.unmanaged")} active onClick={() => setOpen(false)} />
+            )}
+            {ps.length > 0 && (
+              <div class="my-1 border-t border-neutral-200 dark:border-neutral-800" />
+            )}
+            {ps.map((p) => (
+              <MenuItem
+                key={p.id}
+                label={p.name}
+                active={active?.state === "profile" && active.id === p.id}
+                onClick={() => void choose(() => invoke("activate_profile", { id: p.id, scope: ref }))}
+              />
+            ))}
+            <div class="my-1 border-t border-neutral-200 dark:border-neutral-800" />
+            <button
+              class="block w-full px-3 py-1.5 text-left text-neutral-500 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              onClick={() => {
+                setOpen(false);
+                appView.value = "connections";
+              }}
+            >
+              {t("activation.manage")}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

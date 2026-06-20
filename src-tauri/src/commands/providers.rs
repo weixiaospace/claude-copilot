@@ -8,12 +8,13 @@ use std::path::{Path, PathBuf};
 use serde_json::{Map, Value};
 
 use claude_copilot_core::providers::{
-    self, secret_field, ActiveProvider, Profile, ProfileInput, ProfilesFile,
+    self, secret_field, ActiveProvider, Profile, ProfileInput, ProfilesFile, ProviderKind,
 };
 use claude_copilot_core::scopes::ScopeRef;
 
 use super::{home_dir, settings};
 use crate::secrets;
+use crate::state;
 
 fn profiles_path(home: &Path) -> PathBuf {
     home.join(".claude")
@@ -51,13 +52,19 @@ fn with_live_secret_flag(mut p: Profile) -> Profile {
     p
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct ListProfilesInput {
+    check_secrets: Option<bool>,
+}
+
 #[tauri::command]
-pub fn list_profiles() -> Result<Vec<Profile>, String> {
+pub fn list_profiles(input: ListProfilesInput) -> Result<Vec<Profile>, String> {
     let file = load(&home_dir()?)?;
+    let check = input.check_secrets.unwrap_or(true);
     Ok(file
         .profiles
         .into_iter()
-        .map(with_live_secret_flag)
+        .map(|p| if check { with_live_secret_flag(p) } else { p })
         .collect())
 }
 
@@ -205,6 +212,7 @@ pub fn activate_profile(id: String, scope: ScopeRef) -> Result<ActiveProvider, S
         .ok_or("settings file is not a JSON object")?;
     obj.insert("env".to_string(), Value::Object(env));
     settings::write_doc(&path, &doc)?;
+    state::set_active_provider_id(&home, &scope, &id)?;
     Ok(ActiveProvider::Profile { id })
 }
 
@@ -220,24 +228,41 @@ pub fn deactivate_provider(scope: ScopeRef) -> Result<ActiveProvider, String> {
         }
     }
     settings::write_doc(&path, &doc)?;
+    state::clear_active_provider_id(&home, &scope)?;
     Ok(ActiveProvider::Subscription)
 }
 
 /// Derive which profile is active in a scope from its effective env (ADR-0001:
-/// not stored). Token-value match disambiguates same-signature profiles;
-/// no-secret providers fall back to kind + base-url signature.
-#[tauri::command]
-pub fn get_active_profile(scope: ScopeRef) -> Result<ActiveProvider, String> {
-    let home = home_dir()?;
-    let env = effective_env(&scope, &home)?;
+/// not stored). First checks a lightweight in-app cache so startup does not
+/// repeatedly prompt for OS-keychain access. Falls back to token-value match
+/// (which reads the keychain) to disambiguate same-signature profiles, and to
+/// kind + base-url signature for no-secret providers.
+fn derive_active(
+    scope: &ScopeRef,
+    file: &ProfilesFile,
+    home: &Path,
+) -> Result<ActiveProvider, String> {
+    let env = effective_env(scope, home)?;
     if !providers::env_has_provider(&env) {
         return Ok(ActiveProvider::Subscription);
     }
-    let file = load(&home)?;
+
+    // Fast path: if we have cached this scope's active profile and the profile
+    // still exists, skip the keychain read. The cache is updated on every
+    // activation/deactivation, so it stays accurate for normal use.
+    if let Some(cached_id) = state::get_active_provider_id(home, scope)? {
+        if let Some(p) = file.profiles.iter().find(|p| p.id == cached_id) {
+            if profile_signature_matches_env(p, &env) {
+                return Ok(ActiveProvider::Profile { id: cached_id });
+            }
+        }
+    }
+
     if let Some(token) = providers::env_token(&env) {
         for p in &file.profiles {
             if let Some(field) = secret_field(p.kind, p.auth_mode) {
                 if secrets::get_secret(&p.id, field).as_deref() == Some(token.as_str()) {
+                    let _ = state::set_active_provider_id(home, scope, &p.id);
                     return Ok(ActiveProvider::Profile { id: p.id.clone() });
                 }
             }
@@ -246,9 +271,47 @@ pub fn get_active_profile(scope: ScopeRef) -> Result<ActiveProvider, String> {
         let base = env.get("ANTHROPIC_VERTEX_BASE_URL").and_then(Value::as_str);
         for p in &file.profiles {
             if p.kind == kind && p.base_url.as_deref() == base {
+                let _ = state::set_active_provider_id(home, scope, &p.id);
                 return Ok(ActiveProvider::Profile { id: p.id.clone() });
             }
         }
     }
     Ok(ActiveProvider::Unmanaged)
+}
+
+/// Does a profile's kind + base_url line up with the provider markers in `env`?
+fn profile_signature_matches_env(p: &Profile, env: &Map<String, Value>) -> bool {
+    let Some(env_kind) = providers::env_kind(env) else {
+        return false;
+    };
+    if p.kind != env_kind {
+        return false;
+    }
+    let base_key = match p.kind {
+        ProviderKind::Anthropic => "ANTHROPIC_BASE_URL",
+        ProviderKind::Bedrock => "ANTHROPIC_BEDROCK_BASE_URL",
+        ProviderKind::Vertex => "ANTHROPIC_VERTEX_BASE_URL",
+        ProviderKind::Foundry => "ANTHROPIC_FOUNDRY_BASE_URL",
+    };
+    let env_base = env.get(base_key).and_then(Value::as_str);
+    p.base_url.as_deref() == env_base
+}
+
+#[tauri::command]
+pub fn get_active_profile(scope: ScopeRef) -> Result<ActiveProvider, String> {
+    let home = home_dir()?;
+    let file = load(&home)?;
+    derive_active(&scope, &file, &home)
+}
+
+/// Batch [`get_active_profile`] for the whole sidebar: load profiles once and
+/// derive each scope's active provider, aligned with the input order.
+#[tauri::command]
+pub fn list_active_profiles(scopes: Vec<ScopeRef>) -> Result<Vec<ActiveProvider>, String> {
+    let home = home_dir()?;
+    let file = load(&home)?;
+    scopes
+        .iter()
+        .map(|scope| derive_active(scope, &file, &home))
+        .collect()
 }

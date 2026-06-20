@@ -14,6 +14,7 @@ import type { BundledResource } from "../types/BundledResource";
 import type { Profile } from "../types/Profile";
 import type { ProfileInput } from "../types/ProfileInput";
 import type { ActiveProvider } from "../types/ActiveProvider";
+import type { AuthStatus } from "../types/AuthStatus";
 import type { UsageResult } from "../types/UsageResult";
 import type { Session } from "../types/Session";
 
@@ -30,6 +31,10 @@ export interface Commands {
   remove_manual_project: { args: { id: string }; result: Scope[] };
   get_locale: { args: void; result: string | null };
   set_locale: { args: { locale: string }; result: void };
+  get_theme: { args: void; result: string | null };
+  set_theme: { args: { theme: string }; result: void };
+  get_sidebar_width: { args: void; result: number | null };
+  set_sidebar_width: { args: { width: number }; result: void };
   get_welcome_seen: { args: void; result: boolean };
   mark_welcome_seen: { args: void; result: void };
   list_skills: { args: { scope: ScopeRef }; result: FileResource[] };
@@ -40,6 +45,7 @@ export interface Commands {
   list_rules: { args: { scope: ScopeRef }; result: FileResource[] };
   create_rule: { args: { scope: ScopeRef; name: string }; result: FileResource };
   list_workflows: { args: { scope: ScopeRef }; result: FileResource[] };
+  create_workflow: { args: { scope: ScopeRef; name: string }; result: FileResource };
   delete_resource: { args: { path: string }; result: void };
   list_output_styles: { args: { scope: ScopeRef }; result: FileResource[] };
   create_output_style: { args: { scope: ScopeRef; name: string }; result: FileResource };
@@ -69,7 +75,7 @@ export interface Commands {
   add_marketplace: { args: { source: string }; result: void };
   remove_marketplace: { args: { name: string }; result: void };
   update_marketplace: { args: { name: string | null }; result: void };
-  list_profiles: { args: void; result: Profile[] };
+  list_profiles: { args: { input: { check_secrets?: boolean } }; result: Profile[] };
   create_profile: { args: { input: ProfileInput; secret: string | null }; result: Profile };
   update_profile: {
     args: { id: string; input: ProfileInput; secret: string | null };
@@ -79,6 +85,9 @@ export interface Commands {
   activate_profile: { args: { id: string; scope: ScopeRef }; result: ActiveProvider };
   deactivate_provider: { args: { scope: ScopeRef }; result: ActiveProvider };
   get_active_profile: { args: { scope: ScopeRef }; result: ActiveProvider };
+  list_active_profiles: { args: { scopes: ScopeRef[] }; result: ActiveProvider[] };
+  get_claude_auth_status: { args: void; result: AuthStatus };
+  open_claude_login: { args: void; result: void };
   query_usage: {
     args: { scope: ScopeRef; granularity: "day" | "week" | "month" };
     result: UsageResult;
@@ -96,6 +105,7 @@ export interface Commands {
     args: { projectId: string; tool: string; sessionId: string | null };
     result: void;
   };
+  open_in_app: { args: { projectId: string; app: string }; result: void };
 }
 
 export function invoke<K extends keyof Commands>(

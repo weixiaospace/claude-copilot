@@ -206,11 +206,35 @@ pub fn create_rule(scope: ScopeRef, name: String) -> Result<FileResource, String
     create_markdown(scope, &RULES, &name)
 }
 
-// ── Workflows (flat .js, Claude-authored: list + delete only) ────────────────
+// ── Workflows (flat .js) ─────────────────────────────────────────────────────
 
 #[tauri::command]
 pub fn list_workflows(scope: ScopeRef) -> Result<Vec<FileResource>, String> {
     list(scope, &WORKFLOWS)
+}
+
+/// Create a flat workflow file (`<dir>/<name>.js`) with a minimal scaffold.
+#[tauri::command]
+pub fn create_workflow(scope: ScopeRef, name: String) -> Result<FileResource, String> {
+    let name = name.trim();
+    if name.is_empty() || name.contains(['/', '\\']) {
+        return Err("invalid name".to_string());
+    }
+    let dir = root(&scope, &home_dir()?, WORKFLOWS.dir);
+    let file = dir.join(format!("{name}.js"));
+    if file.exists() {
+        return Err(format!("'{name}' already exists"));
+    }
+    fs::create_dir_all(&dir).map_err(|e| format!("failed to create dir: {e}"))?;
+    let template = format!(
+        "export const meta = {{\n  name: '{name}',\n  description: '',\n  phases: [{{ title: 'Main' }}],\n}}\n\nphase('Main')\n"
+    );
+    fs::write(&file, &template).map_err(|e| format!("failed to write {name}.js: {e}"))?;
+    Ok(FileResource {
+        name: name.to_string(),
+        description: None,
+        path: file.to_string_lossy().into_owned(),
+    })
 }
 
 /// Delete a flat single-file resource (an Agent/Rule `.md` or a Workflow `.js`).

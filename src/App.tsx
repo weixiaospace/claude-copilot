@@ -1,18 +1,23 @@
 import { useEffect, useState } from "preact/hooks";
 import {
+  appView,
   fsTick,
   providersTick,
+  initSidebarWidth,
+  reloadActiveProfiles,
   reloadScopes,
   scopes,
   selectedScopeId,
 } from "./lib/signals";
 import { initLocale, t } from "./lib/i18n";
+import { initTheme } from "./lib/theme";
 import { invoke, listen } from "./lib/ipc";
 import { runUpdateCheck } from "./lib/updater";
+import { AppHeader } from "./components/AppHeader";
 import { ScopeSidebar } from "./components/ScopeSidebar";
-import { LocaleSwitcher } from "./components/LocaleSwitcher";
 import { ProviderActivation } from "./components/ProviderActivation";
 import { ResourceArea } from "./components/ResourceArea";
+import { ConnectionsPage } from "./components/ConnectionsPage";
 import { WelcomeDialog } from "./components/WelcomeDialog";
 
 export function App() {
@@ -20,6 +25,8 @@ export function App() {
 
   useEffect(() => {
     void initLocale();
+    void initTheme();
+    void initSidebarWidth();
     void reloadScopes();
     invoke("get_welcome_seen")
       .then((seen) => {
@@ -37,6 +44,7 @@ export function App() {
       .catch(() => {});
     listen("providers-changed", () => {
       providersTick.value++;
+      void reloadActiveProfiles();
     })
       .then((u) => (offProviders = u))
       .catch(() => {});
@@ -54,30 +62,38 @@ export function App() {
       : selected.label;
 
   return (
-    <div class="flex h-full bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
-      <ScopeSidebar />
-      <main class="flex min-w-0 flex-1 flex-col">
-        <header class="flex items-center justify-between gap-4 border-b border-neutral-200 px-6 py-3 dark:border-neutral-800">
-          <div class="min-w-0">
-            <h1 class="truncate text-sm font-medium">{title}</h1>
-            {selected?.path && (
-              <p class="truncate text-xs text-neutral-400">{selected.path}</p>
-            )}
-          </div>
-          <div class="flex items-center gap-3">
-            {selected && (
-              <ProviderActivation
-                key={`${selected.id}:${providersTick.value}`}
-                scope={selected}
-              />
-            )}
-            <LocaleSwitcher />
-          </div>
-        </header>
-        <div class="min-h-0 flex-1">
-          {selected && <ResourceArea key={selected.id} scope={selected} />}
-        </div>
-      </main>
+    <div class="flex h-full flex-col bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+      <AppHeader />
+      <div class="flex min-h-0 flex-1">
+        <ScopeSidebar />
+        <main class="flex min-w-0 flex-1 flex-col">
+          {appView.value === "connections" ? (
+            <ConnectionsPage />
+          ) : (
+            <>
+              <header class="flex items-center justify-between gap-4 border-b border-neutral-200 px-6 py-3 dark:border-neutral-800">
+                <div class="min-w-0">
+                  <h1 class="truncate text-sm font-medium">{title}</h1>
+                  {selected?.path && (
+                    <p class="truncate text-xs text-neutral-400">{selected.path}</p>
+                  )}
+                </div>
+                <div class="flex items-center gap-3">
+                  {selected && (
+                    <ProviderActivation
+                      key={`${selected.id}:${providersTick.value}`}
+                      scope={selected}
+                    />
+                  )}
+                </div>
+              </header>
+              <div class="min-h-0 flex-1">
+                {selected && <ResourceArea key={selected.id} scope={selected} />}
+              </div>
+            </>
+          )}
+        </main>
+      </div>
 
       <WelcomeDialog
         open={showWelcome}
