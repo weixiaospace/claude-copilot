@@ -1,0 +1,62 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-14 # Apple Silicon (aarch64)
+            args: --target aarch64-apple-darwin
+          - platform: windows-latest # x86_64; NSIS only (WiX/MSI light.exe fails)
+            args: --target x86_64-pc-windows-msvc --bundles nsis
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pnpm install --frozen-lockfile
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "ClaudeCopilot ${{ github.ref_name }}"
+          releaseBody: "See the commit log for changes in this release."
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          args: ${{ matrix.args }}
+
+  # Publish binaries to CNB Release (domestic public direct links) + push the
+  # CNB-pointing latest.json back to CNB main.
+  publish-to-cnb:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download build artifacts from GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p dist
+          gh release download "${{ github.ref_name }}" -R "${{ github.repository }}" -D dist \
+            -p "*.app.tar.gz" -p "*.app.tar.gz.sig" -p "*-setup.exe" -p "*-setup.exe.sig" -p "*.dmg"
+          ls -la dist
+      - name: Publish to CNB Release + manifest
+        env:
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+        run: bash scripts/publish-cnb.sh "${{ github.ref_name }}" dist

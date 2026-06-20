@@ -8,6 +8,7 @@ import {
 } from "./lib/signals";
 import { initLocale, t } from "./lib/i18n";
 import { invoke, listen } from "./lib/ipc";
+import { runUpdateCheck } from "./lib/updater";
 import { ScopeSidebar } from "./components/ScopeSidebar";
 import { LocaleSwitcher } from "./components/LocaleSwitcher";
 import { ProviderActivation } from "./components/ProviderActivation";
@@ -25,6 +26,7 @@ export function App() {
         if (!seen) setShowWelcome(true);
       })
       .catch(() => {});
+    void runUpdateCheck(true);
 
     let offFs: (() => void) | undefined;
     let offProviders: (() => void) | undefined;

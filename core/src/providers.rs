@@ -35,9 +35,9 @@ pub struct Profile {
     pub id: String,
     pub name: String,
     pub kind: ProviderKind,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub auth_mode: Option<AuthMode>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub base_url: Option<String>,
     /// Whether a secret for this profile exists in the keychain.
     #[serde(default)]

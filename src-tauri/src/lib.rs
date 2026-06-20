@@ -10,7 +10,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         // Restores + persists window size/position across launches.
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            // Auto-update (desktop only); manifest + pubkey in tauri.conf.json.
+            #[cfg(desktop)]
+            app.handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())?;
+
             // Live-reload watcher over ~/.claude (best-effort).
             if let Some(home) = dirs::home_dir() {
                 watchers::start(app.handle().clone(), &home);

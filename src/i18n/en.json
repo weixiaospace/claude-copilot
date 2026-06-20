@@ -105,5 +105,10 @@
   "resource.sessions": "Sessions",
   "sessions.new": "New session",
   "sessions.resume": "Resume",
-  "sessions.empty": "No sessions yet"
+  "sessions.empty": "No sessions yet",
+  "update.title": "Update",
+  "update.checkFailed": "Update check failed",
+  "update.upToDate": "You're on the latest version",
+  "update.found": "New version v{0} available. Update and restart now?",
+  "update.installFailed": "Update failed"
 }
