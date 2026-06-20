@@ -20,6 +20,7 @@ const jsonVersion = (t) => t.replace(/("version"\s*:\s*)"[^"]*"/, `$1"${version}
 patch("package.json", jsonVersion);
 patch("src-tauri/tauri.conf.json", jsonVersion);
 patch("src-tauri/Cargo.toml", (t) => t.replace(/^version = "[^"]*"/m, `version = "${version}"`));
-patch("src-tauri/Cargo.lock", (t) =>
+// Cargo.lock lives at the workspace root (this is a Cargo workspace).
+patch("Cargo.lock", (t) =>
   t.replace(/(name = "claude-copilot-desktop"\nversion = )"[^"]*"/, `$1"${version}"`),
 );
