@@ -15,6 +15,7 @@ import type { Profile } from "../types/Profile";
 import type { ProfileInput } from "../types/ProfileInput";
 import type { ActiveProvider } from "../types/ActiveProvider";
 import type { AuthStatus } from "../types/AuthStatus";
+import type { ClaudeSubscriptionQuota } from "../types/ClaudeSubscriptionQuota";
 import type { UsageResult } from "../types/UsageResult";
 import type { Session } from "../types/Session";
 
@@ -87,7 +88,8 @@ export interface Commands {
   get_active_profile: { args: { scope: ScopeRef }; result: ActiveProvider };
   list_active_profiles: { args: { scopes: ScopeRef[] }; result: ActiveProvider[] };
   get_claude_auth_status: { args: void; result: AuthStatus };
-  open_claude_login: { args: void; result: void };
+  claude_auth_login: { args: void; result: void };
+  get_claude_subscription_quota: { args: void; result: ClaudeSubscriptionQuota };
   query_usage: {
     args: { scope: ScopeRef; granularity: "day" | "week" | "month" };
     result: UsageResult;

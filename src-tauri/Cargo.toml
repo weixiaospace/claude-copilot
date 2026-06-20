@@ -21,9 +21,11 @@ tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 dirs = "6"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
 notify = "8"
 uuid = { version = "1", features = ["v4"] }
 # keyring 4 default features cover the native stores: apple-native + windows-native
 # + zbus-secret-service (Linux) + the classic v1 Entry API.
 keyring = "4"
 claude-copilot-core = { path = "../core" }
+reqwest = { version = "0.12", features = ["json", "blocking", "rustls-tls"] }

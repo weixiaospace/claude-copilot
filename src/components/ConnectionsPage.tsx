@@ -5,6 +5,8 @@ import type { Profile } from "../types/Profile";
 import type { ProviderKind } from "../types/ProviderKind";
 import type { AuthMode } from "../types/AuthMode";
 import type { AuthStatus } from "../types/AuthStatus";
+import type { ClaudeSubscriptionQuota } from "../types/ClaudeSubscriptionQuota";
+import type { RateLimitTier } from "../types/RateLimitTier";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
 import { activeByScope, profiles, providersTick, reloadActiveProfiles } from "../lib/signals";
@@ -16,10 +18,54 @@ import { Button } from "./ui/button";
 const KINDS: ProviderKind[] = ["anthropic", "bedrock", "vertex", "foundry"];
 const ANTHROPIC_MODES: AuthMode[] = ["apiKey", "authToken", "subscription", "helper"];
 
+const WINDOW_LABELS: Record<string, string> = {
+  five_hour: t("auth.window.five_hour"),
+  seven_day: t("auth.window.seven_day"),
+  seven_day_opus: t("auth.window.seven_day_opus"),
+  seven_day_sonnet: t("auth.window.seven_day_sonnet"),
+  overage: t("auth.window.overage"),
+};
+
 /** Mirrors core::providers::secret_field — whether a secret input is shown. */
 function needsSecret(kind: ProviderKind, authMode: AuthMode | null): boolean {
   if (kind === "anthropic") return authMode === "apiKey" || authMode === "authToken";
   return kind === "bedrock" || kind === "foundry";
+}
+
+function formatResetTime(ts: number): string {
+  const diff = ts * 1000 - Date.now();
+  if (diff <= 0) return t("auth.resetSoon");
+  const totalMinutes = Math.floor(diff / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const mins = totalMinutes % 60;
+  if (days > 0) return t("auth.resetDays", days, hours, mins);
+  if (hours > 0) return t("auth.resetHours", hours, mins);
+  return t("auth.resetMinutes", mins);
+}
+
+function QuotaBar({ tier }: { tier: RateLimitTier }) {
+  const pct = Math.round(tier.utilization * 100);
+  return (
+    <div class="space-y-1">
+      <div class="flex items-center justify-between text-sm">
+        <span>{WINDOW_LABELS[tier.window] ?? tier.window}</span>
+        <span class={pct > 90 ? "text-red-500" : pct > 70 ? "text-yellow-600" : ""}>{pct}%</span>
+      </div>
+      <div class="h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
+        <div
+          class={
+            "h-full rounded-full " +
+            (pct > 90 ? "bg-red-500" : pct > 70 ? "bg-yellow-500" : "bg-green-500")
+          }
+          style={{ width: `${Math.min(pct, 100)}%` }}
+        />
+      </div>
+      {tier.resets_at && (
+        <div class="text-xs text-neutral-500">{formatResetTime(tier.resets_at)}</div>
+      )}
+    </div>
+  );
 }
 
 interface FormState {
@@ -142,6 +188,8 @@ export function ConnectionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+  const [quota, setQuota] = useState<ClaudeSubscriptionQuota | null>(null);
+  const [quotaLoading, setQuotaLoading] = useState(false);
 
   async function refreshAuth() {
     setAuthLoading(true);
@@ -156,9 +204,23 @@ export function ConnectionsPage() {
     }
   }
 
+  async function refreshQuota() {
+    setQuotaLoading(true);
+    try {
+      const q = await invoke("get_claude_subscription_quota");
+      setQuota(q);
+    } catch (e) {
+      setQuota(null);
+      setError(t("auth.quotaError"));
+      console.error("get_claude_subscription_quota failed", e);
+    } finally {
+      setQuotaLoading(false);
+    }
+  }
+
   async function openLogin() {
     try {
-      await invoke("open_claude_login");
+      await invoke("claude_auth_login");
     } catch (e) {
       setError(String(e));
     }
@@ -177,7 +239,7 @@ export function ConnectionsPage() {
 
   useEffect(() => {
     void refresh();
-    void refreshAuth();
+    void refreshAuth().then(() => void refreshQuota());
   }, []);
 
   async function save() {
@@ -219,7 +281,19 @@ export function ConnectionsPage() {
     }
   }
 
+  async function setSubscriptionAsDefault() {
+    try {
+      await invoke("deactivate_provider", { scope: { kind: "user" } });
+      await reloadActiveProfiles();
+      providersTick.value++;
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   const userActive = activeByScope.value["user"];
+  const subscriptionActive = userActive?.state === "subscription";
+  const unmanagedActive = userActive?.state === "unmanaged";
 
   return (
     <div class="flex h-full flex-col">
@@ -260,12 +334,15 @@ export function ConnectionsPage() {
           <div class="flex shrink-0 items-center gap-2">
             <Button
               variant="ghost"
-              onClick={() => void refreshAuth()}
+              onClick={() => {
+                void refreshAuth();
+                void refreshQuota();
+              }}
               title={t("resource.refresh")}
               aria-label={t("resource.refresh")}
-              disabled={authLoading}
+              disabled={authLoading || quotaLoading}
             >
-              <RefreshCw size={14} class={authLoading ? "animate-spin" : ""} />
+              <RefreshCw size={14} class={authLoading || quotaLoading ? "animate-spin" : ""} />
             </Button>
             {authStatus?.logged_in ? (
               <Button variant="ghost" onClick={() => void openLogin()}>
@@ -278,8 +355,23 @@ export function ConnectionsPage() {
                 {t("auth.login")}
               </Button>
             )}
+            {subscriptionActive ? (
+              <Button variant="ghost" disabled>
+                <Check size={14} class="mr-1 text-accent" />
+                {t("auth.userDefault")}
+              </Button>
+            ) : unmanagedActive ? (
+              <Button variant="ghost" disabled>
+                {t("auth.externalManaged")}
+              </Button>
+            ) : (
+              <Button variant="ghost" onClick={() => void setSubscriptionAsDefault()}>
+                {t("auth.setUserDefault")}
+              </Button>
+            )}
           </div>
         </div>
+
         {authStatus?.logged_in && (
           <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-500">
             {authStatus.subscription_type && (
@@ -292,10 +384,29 @@ export function ConnectionsPage() {
                 {t("auth.rateLimitTier")}: {authStatus.rate_limit_tier}
               </span>
             )}
-            {authStatus.expires_at && (
-              <span>
-                {t("auth.expires")}: {new Date(authStatus.expires_at).toLocaleString()}
-              </span>
+          </div>
+        )}
+
+        {quota?.error && (
+          <div class="mt-2 text-xs text-red-500">{quota.error}</div>
+        )}
+
+        {quota && quota.tiers.length > 0 && (
+          <div class="mt-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+            <h3 class="mb-2 text-xs font-medium text-neutral-500 uppercase tracking-wider">
+              {t("auth.quotaTitle")}
+            </h3>
+            <div class="flex flex-col gap-2">
+              {quota.tiers.map((tier) => (
+                <QuotaBar key={tier.window} tier={tier} />
+              ))}
+            </div>
+            {quota.extra_usage?.is_enabled && (
+              <div class="mt-2 text-xs text-neutral-500">
+                {t("auth.hasExtraUsage")}
+                {quota.extra_usage.utilization != null &&
+                  `: ${Math.round(quota.extra_usage.utilization * 100)}%`}
+              </div>
             )}
           </div>
         )}

@@ -136,7 +136,7 @@ fn open_macos_app(app: &str, _path: &str) -> Result<(), String> {
 }
 
 #[cfg(target_os = "macos")]
-fn open_terminal_at(dir: &str, command: &str) -> Result<(), String> {
+pub(crate) fn open_terminal_at(dir: &str, command: &str) -> Result<(), String> {
     let shell = format!("cd '{}' && {}", dir.replace('\'', "'\\''"), command);
     let script = format!(
         "tell application \"Terminal\"\nactivate\ndo script \"{}\"\nend tell",
@@ -151,7 +151,7 @@ fn open_terminal_at(dir: &str, command: &str) -> Result<(), String> {
 }
 
 #[cfg(target_os = "windows")]
-fn open_terminal_at(dir: &str, command: &str) -> Result<(), String> {
+pub(crate) fn open_terminal_at(dir: &str, command: &str) -> Result<(), String> {
     std::process::Command::new("cmd")
         .args(["/C", "start", "cmd", "/K"])
         .arg(format!("cd /d \"{dir}\" && {command}"))
@@ -161,7 +161,7 @@ fn open_terminal_at(dir: &str, command: &str) -> Result<(), String> {
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
-fn open_terminal_at(dir: &str, command: &str) -> Result<(), String> {
+pub(crate) fn open_terminal_at(dir: &str, command: &str) -> Result<(), String> {
     let shell = format!("cd '{}' && {}; exec $SHELL", dir.replace('\'', "'\\''"), command);
     for term in ["x-terminal-emulator", "gnome-terminal", "konsole", "xterm"] {
         if std::process::Command::new(term)
