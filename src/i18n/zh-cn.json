@@ -98,5 +98,8 @@
   "settings.addPlaceholder": "添加…（回车）",
   "settings.invalidJson": "JSON 无效",
   "settings.saved": "已保存",
-  "settings.rawHint": "切换到原始 JSON 可编辑其他设置。"
+  "settings.rawHint": "切换到原始 JSON 可编辑其他设置。",
+  "activation.label": "Provider",
+  "activation.subscription": "订阅",
+  "activation.unmanaged": "外部(非本应用管理)"
 }

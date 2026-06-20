@@ -13,6 +13,7 @@ import type { AvailablePlugin } from "../types/AvailablePlugin";
 import type { BundledResource } from "../types/BundledResource";
 import type { Profile } from "../types/Profile";
 import type { ProfileInput } from "../types/ProfileInput";
+import type { ActiveProvider } from "../types/ActiveProvider";
 import type { UsageResult } from "../types/UsageResult";
 
 /**
@@ -74,6 +75,9 @@ export interface Commands {
     result: Profile;
   };
   delete_profile: { args: { id: string }; result: void };
+  activate_profile: { args: { id: string; scope: ScopeRef }; result: ActiveProvider };
+  deactivate_provider: { args: { scope: ScopeRef }; result: ActiveProvider };
+  get_active_profile: { args: { scope: ScopeRef }; result: ActiveProvider };
   query_usage: {
     args: { scope: ScopeRef; granularity: "day" | "week" | "month" };
     result: UsageResult;
