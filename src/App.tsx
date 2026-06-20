@@ -1,14 +1,23 @@
-import { useEffect } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { reloadScopes, scopes, selectedScopeId } from "./lib/signals";
 import { initLocale, t } from "./lib/i18n";
+import { invoke } from "./lib/ipc";
 import { ScopeSidebar } from "./components/ScopeSidebar";
 import { LocaleSwitcher } from "./components/LocaleSwitcher";
 import { ResourceArea } from "./components/ResourceArea";
+import { WelcomeDialog } from "./components/WelcomeDialog";
 
 export function App() {
+  const [showWelcome, setShowWelcome] = useState(false);
+
   useEffect(() => {
     void initLocale();
     void reloadScopes();
+    invoke("get_welcome_seen")
+      .then((seen) => {
+        if (!seen) setShowWelcome(true);
+      })
+      .catch(() => {});
   }, []);
 
   const selected = scopes.value.find((s) => s.id === selectedScopeId.value);
@@ -35,6 +44,14 @@ export function App() {
           {selected && <ResourceArea key={selected.id} scope={selected} />}
         </div>
       </main>
+
+      <WelcomeDialog
+        open={showWelcome}
+        onClose={() => {
+          setShowWelcome(false);
+          void invoke("mark_welcome_seen").catch(() => {});
+        }}
+      />
     </div>
   );
 }

@@ -7,12 +7,16 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        // Restores + persists window size/position across launches.
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             commands::scopes::list_scopes,
             commands::scopes::add_project,
             commands::scopes::remove_manual_project,
             commands::ui::get_locale,
             commands::ui::set_locale,
+            commands::ui::get_welcome_seen,
+            commands::ui::mark_welcome_seen,
             commands::files::read_file,
             commands::files::write_file,
             commands::files::open_in_editor,

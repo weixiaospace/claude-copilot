@@ -72,6 +72,30 @@ pub fn set_locale(home: &Path, locale: &str) -> Result<(), String> {
     save(home, &st)
 }
 
+/// Whether the first-run welcome has already been shown (`ui.seenWelcome`).
+pub fn get_welcome_seen(home: &Path) -> Result<bool, String> {
+    let st = load(home)?;
+    Ok(st
+        .ui
+        .as_ref()
+        .and_then(|ui| ui.get("seenWelcome"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false))
+}
+
+/// Mark the first-run welcome as shown, preserving other `ui` fields.
+pub fn set_welcome_seen(home: &Path) -> Result<(), String> {
+    let mut st = load(home)?;
+    let ui = st.ui.get_or_insert_with(|| Value::Object(Default::default()));
+    match ui.as_object_mut() {
+        Some(obj) => {
+            obj.insert("seenWelcome".to_string(), Value::Bool(true));
+        }
+        None => return Err("state.json#ui is not an object".to_string()),
+    }
+    save(home, &st)
+}
+
 /// Absolute project paths Claude Code already tracks: the keys of
 /// `~/.claude.json#projects`. We never reverse-decode the lossy slug dirs.
 pub fn claude_known_paths(home: &Path) -> Vec<String> {

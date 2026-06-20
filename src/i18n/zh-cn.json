@@ -81,5 +81,8 @@
   "usage.sessions": "会话数",
   "usage.empty": "暂无用量数据",
   "usage.timeline": "时间线",
-  "usage.byModel": "按模型"
+  "usage.byModel": "按模型",
+  "welcome.title": "欢迎使用 Claude Copilot",
+  "welcome.body": "本应用用于管理 ~/.claude 下的 Claude Code 配置。Provider 凭证在这里独立保存(存入系统钥匙串),v0.1 不与 VSCode 扩展共享 —— 需要的话请在 Providers 里重新配置 API。",
+  "welcome.dismiss": "开始使用"
 }
