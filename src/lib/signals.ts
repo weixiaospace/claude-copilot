@@ -11,6 +11,12 @@ export const selectedScopeId = signal<string | null>(null);
 /** Last error from loading scopes, surfaced in the sidebar. */
 export const scopesError = signal<string | null>(null);
 
+/** Bumped on a `resource-changed` watcher event → panels reload. */
+export const fsTick = signal(0);
+
+/** Bumped on a `providers-changed` watcher event → provider UI reloads. */
+export const providersTick = signal(0);
+
 /**
  * Refresh the scope list. Pass `next` (the list a mutating command already
  * returned) to skip a second round-trip. Keeps the selection valid, falling

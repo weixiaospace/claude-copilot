@@ -1,7 +1,13 @@
 import { useEffect, useState } from "preact/hooks";
-import { reloadScopes, scopes, selectedScopeId } from "./lib/signals";
+import {
+  fsTick,
+  providersTick,
+  reloadScopes,
+  scopes,
+  selectedScopeId,
+} from "./lib/signals";
 import { initLocale, t } from "./lib/i18n";
-import { invoke } from "./lib/ipc";
+import { invoke, listen } from "./lib/ipc";
 import { ScopeSidebar } from "./components/ScopeSidebar";
 import { LocaleSwitcher } from "./components/LocaleSwitcher";
 import { ProviderActivation } from "./components/ProviderActivation";
@@ -19,6 +25,23 @@ export function App() {
         if (!seen) setShowWelcome(true);
       })
       .catch(() => {});
+
+    let offFs: (() => void) | undefined;
+    let offProviders: (() => void) | undefined;
+    listen("resource-changed", () => {
+      fsTick.value++;
+    })
+      .then((u) => (offFs = u))
+      .catch(() => {});
+    listen("providers-changed", () => {
+      providersTick.value++;
+    })
+      .then((u) => (offProviders = u))
+      .catch(() => {});
+    return () => {
+      offFs?.();
+      offProviders?.();
+    };
   }, []);
 
   const selected = scopes.value.find((s) => s.id === selectedScopeId.value);
@@ -40,7 +63,12 @@ export function App() {
             )}
           </div>
           <div class="flex items-center gap-3">
-            {selected && <ProviderActivation key={selected.id} scope={selected} />}
+            {selected && (
+              <ProviderActivation
+                key={`${selected.id}:${providersTick.value}`}
+                scope={selected}
+              />
+            )}
             <LocaleSwitcher />
           </div>
         </header>

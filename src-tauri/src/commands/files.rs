@@ -107,7 +107,9 @@ pub fn write_file(app: AppHandle, path: String, content: String) -> Result<(), S
     if let Some(parent) = Path::new(&path).parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("failed to create dir: {e}"))?;
     }
-    std::fs::write(&path, content).map_err(|e| format!("failed to write {path}: {e}"))
+    std::fs::write(&path, content).map_err(|e| format!("failed to write {path}: {e}"))?;
+    crate::watchers::note_write();
+    Ok(())
 }
 
 #[tauri::command]
