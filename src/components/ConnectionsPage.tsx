@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { confirm } from "@tauri-apps/plugin-dialog";
+import { confirm, message } from "@tauri-apps/plugin-dialog";
 import { Check, LogIn, RefreshCw, Zap } from "lucide-preact";
 import type { Profile } from "../types/Profile";
 import type { ProviderKind } from "../types/ProviderKind";
@@ -30,6 +30,24 @@ const WINDOW_LABELS: Record<string, string> = {
 function needsSecret(kind: ProviderKind, authMode: AuthMode | null): boolean {
   if (kind === "anthropic") return authMode === "apiKey" || authMode === "authToken";
   return kind === "bedrock" || kind === "foundry";
+}
+
+function presentError(e: unknown): string {
+  const text = String(e).toLowerCase();
+  if (text.includes("canceled") || text.includes("cancelled")) {
+    return t("auth.errors.keychainCanceled");
+  }
+  if (text.includes("denied")) {
+    return t("auth.errors.keychainDenied");
+  }
+  if (text.includes("keychain")) {
+    return t("auth.errors.keychainReadFailed");
+  }
+  return String(e);
+}
+
+async function showError(e: unknown) {
+  await message(presentError(e), { title: t("common.error"), kind: "error" });
 }
 
 function formatResetTime(ts: number): string {
@@ -185,7 +203,6 @@ function ProfileFields({
  */
 export function ConnectionsPage() {
   const [form, setForm] = useState<FormState | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [quota, setQuota] = useState<ClaudeSubscriptionQuota | null>(null);
@@ -211,7 +228,7 @@ export function ConnectionsPage() {
       setQuota(q);
     } catch (e) {
       setQuota(null);
-      setError(t("auth.quotaError"));
+      await showError(t("auth.quotaError"));
       console.error("get_claude_subscription_quota failed", e);
     } finally {
       setQuotaLoading(false);
@@ -222,24 +239,29 @@ export function ConnectionsPage() {
     try {
       await invoke("claude_auth_login");
     } catch (e) {
-      setError(String(e));
+      await showError(e);
     }
   }
 
   async function refresh() {
     try {
-      const ps = await invoke("list_profiles", { input: { check_secrets: true } });
+      // Do NOT probe the keychain on page entry: check_secrets:false reads the
+      // stored has_secret flag (which already drives the "credential missing"
+      // badge), so Surface A (our own keychain) is touched only on activation.
+      const ps = await invoke("list_profiles", { input: { check_secrets: false } });
       profiles.value = ps;
       await reloadActiveProfiles();
-      setError(null);
     } catch (e) {
-      setError(String(e));
+      await showError(e);
     }
   }
 
   useEffect(() => {
     void refresh();
-    void refreshAuth().then(() => void refreshQuota());
+    // On entry, only the local (file-based) login status — no keychain, no API.
+    // Quota (live keychain token + an api/oauth/usage call) is fetched on
+    // explicit refresh, so visiting the page never hits the network or prompts.
+    void refreshAuth();
   }, []);
 
   async function save() {
@@ -257,7 +279,7 @@ export function ConnectionsPage() {
       setForm(null);
       await refresh();
     } catch (e) {
-      setError(String(e));
+      await showError(e);
     }
   }
 
@@ -267,7 +289,7 @@ export function ConnectionsPage() {
       await invoke("delete_profile", { id: p.id });
       await refresh();
     } catch (e) {
-      setError(String(e));
+      await showError(e);
     }
   }
 
@@ -277,7 +299,7 @@ export function ConnectionsPage() {
       await reloadActiveProfiles();
       providersTick.value++; // nudge SettingsPanel (env block changed) to re-read
     } catch (e) {
-      setError(String(e));
+      await showError(e);
     }
   }
 
@@ -287,13 +309,16 @@ export function ConnectionsPage() {
       await reloadActiveProfiles();
       providersTick.value++;
     } catch (e) {
-      setError(String(e));
+      await showError(e);
     }
   }
 
   const userActive = activeByScope.value["user"];
   const subscriptionActive = userActive?.state === "subscription";
   const unmanagedActive = userActive?.state === "unmanaged";
+  // Badge prefers the keychain truth from a fetched quota (set on explicit
+  // refresh); on entry it falls back to the file-based local status.
+  const loggedIn = (quota?.logged_in ?? authStatus?.logged_in) ?? false;
 
   return (
     <div class="flex h-full flex-col">
@@ -315,13 +340,11 @@ export function ConnectionsPage() {
         onCreate={() => setForm({ ...EMPTY })}
       />
 
-      {error && <div class="px-6 pb-1 text-sm text-red-500">{error}</div>}
-
       <div class="mx-6 mb-4 rounded-md border border-neutral-200 px-4 py-3 dark:border-neutral-800">
         <div class="flex items-center justify-between gap-3">
           <div class="flex min-w-0 items-center gap-2">
             <span class="truncate text-sm font-medium">{t("auth.claudeSubscription")}</span>
-            {authStatus?.logged_in ? (
+            {loggedIn ? (
               <span class="inline-flex shrink-0 items-center rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900 dark:text-green-300">
                 {t("auth.loggedIn")}
               </span>
@@ -344,7 +367,7 @@ export function ConnectionsPage() {
             >
               <RefreshCw size={14} class={authLoading || quotaLoading ? "animate-spin" : ""} />
             </Button>
-            {authStatus?.logged_in ? (
+            {loggedIn ? (
               <>
                 <Button variant="ghost" onClick={() => void openLogin()}>
                   <LogIn size={14} class="mr-1" />

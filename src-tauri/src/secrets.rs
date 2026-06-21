@@ -58,6 +58,36 @@ pub fn get_secret(profile_id: &str, field: &str) -> Option<String> {
     })
 }
 
+/// Strict variant of [`get_secret`] for operations that must know whether a
+/// secret exists. Use this when a missing or inaccessible secret should abort a
+/// side-effect such as activating a provider profile.
+///
+/// - `Ok(Some)` – the entry exists and was read successfully.
+/// - `Ok(None)` – the entry genuinely does not exist.
+/// - `Err` – the keychain is inaccessible or the user denied access. This must
+///   **not** be treated as "no secret"; the caller must fail the operation.
+pub fn get_secret_strict(profile_id: &str, field: &str) -> Result<Option<String>, String> {
+    let key = cache_key(profile_id, field);
+    with_cache(|cache| {
+        if let Some(cached) = cache.get(&key) {
+            return Ok(cached.clone());
+        }
+        let result = Entry::new(SERVICE, &account(profile_id, field))
+            .and_then(|e| e.get_password());
+        match result {
+            Ok(value) => {
+                cache.insert(key, Some(value.clone()));
+                Ok(Some(value))
+            }
+            Err(keyring::Error::NoEntry) => {
+                cache.insert(key, None);
+                Ok(None)
+            }
+            Err(e) => Err(format!("keychain read failed: {e}")),
+        }
+    })
+}
+
 pub fn delete_secret(profile_id: &str, field: &str) -> Result<(), String> {
     let entry = Entry::new(SERVICE, &account(profile_id, field))
         .map_err(|e| format!("keychain access failed: {e}"))?;
@@ -77,4 +107,35 @@ pub fn delete_secret(profile_id: &str, field: &str) -> Result<(), String> {
 #[allow(dead_code)]
 pub fn clear_cache() {
     with_cache(|cache| cache.clear());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strict_roundtrip_and_missing_and_delete() {
+        let profile = format!("strict-test-{}", std::process::id());
+        clear_cache();
+
+        // Missing entry is Ok(None), not an error.
+        assert_eq!(get_secret_strict(&profile, "apiKey").unwrap(), None);
+
+        // After set, strict read returns the value.
+        set_secret(&profile, "apiKey", "sekrit").unwrap();
+        assert_eq!(
+            get_secret_strict(&profile, "apiKey").unwrap(),
+            Some("sekrit".to_string())
+        );
+
+        // Cache hit path returns the same value.
+        assert_eq!(
+            get_secret_strict(&profile, "apiKey").unwrap(),
+            Some("sekrit".to_string())
+        );
+
+        // After delete, strict read returns Ok(None) again.
+        delete_secret(&profile, "apiKey").unwrap();
+        assert_eq!(get_secret_strict(&profile, "apiKey").unwrap(), None);
+    }
 }

@@ -103,10 +103,12 @@ fn read_file_oauth() -> Result<Option<ClaudeAiOauth>, String> {
     Ok(creds.claude_ai_oauth)
 }
 
-/// Read the Claude OAuth entry. On macOS, Claude Code stores the active token in
-/// the login keychain (`Claude Code-credentials`), so we read that first and
-/// fall back to the credentials file. On other platforms the file is the source
-/// of truth.
+/// Read the Claude OAuth entry for the *live token* (quota path). On macOS,
+/// Claude Code stores the active token in the login keychain
+/// (`Claude Code-credentials`), so we read that first and fall back to the
+/// credentials file. On other platforms the file is the source of truth. The
+/// keychain read happens only here, i.e. only when quota is fetched on an
+/// explicit refresh — never on page entry (see [`get_claude_auth_status`]).
 fn read_claude_oauth() -> Result<Option<ClaudeAiOauth>, String> {
     #[cfg(target_os = "macos")]
     if let Some(oauth) = read_keychain_oauth() {
@@ -139,9 +141,16 @@ fn status_from_oauth(oauth: Option<ClaudeAiOauth>) -> AuthStatus {
 }
 
 /// Check whether the user has a stored Claude subscription OAuth session.
+///
+/// This is the lightweight "local login status" used for the page badge, so it
+/// reads the credentials *file* only — it never touches the keychain (Surface
+/// B). The keychain holds the live token and is read solely by the quota query,
+/// which runs on explicit refresh. The file can be stale (an old `expiresAt`),
+/// but presence of a token is enough to know a session exists; the quota call
+/// reconciles the keychain truth when the user refreshes.
 #[tauri::command]
 pub fn get_claude_auth_status() -> Result<AuthStatus, String> {
-    let oauth = read_claude_oauth()?;
+    let oauth = read_file_oauth()?;
     Ok(status_from_oauth(oauth))
 }
 

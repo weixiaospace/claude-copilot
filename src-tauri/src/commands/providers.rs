@@ -195,7 +195,18 @@ pub fn activate_profile(id: String, scope: ScopeRef) -> Result<ActiveProvider, S
         .find(|p| p.id == id)
         .cloned()
         .ok_or_else(|| format!("profile {id} not found"))?;
-    let secret = secret_field(profile.kind, profile.auth_mode).and_then(|f| secrets::get_secret(&id, f));
+    let secret = match secret_field(profile.kind, profile.auth_mode) {
+        Some(field) => {
+            // Activation is a side-effect: if the profile requires a secret, we
+            // must read it strictly. A denied keychain prompt or an I/O error
+            // must abort the operation, not write an empty env block.
+            match secrets::get_secret_strict(&id, field)? {
+                Some(value) if !value.is_empty() => Some(value),
+                _ => return Err(format!("profile {} has no stored secret", profile.name)),
+            }
+        }
+        None => None,
+    };
     let pairs = providers::build_env(&profile, secret.as_deref());
 
     let path = settings::settings_path(&scope, activation_layer(&scope), &home)?;
@@ -314,4 +325,111 @@ pub fn list_active_profiles(scopes: Vec<ScopeRef>) -> Result<Vec<ActiveProvider>
         .iter()
         .map(|scope| derive_active(scope, &file, &home))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use claude_copilot_core::providers::{AuthMode, ProviderKind};
+    use claude_copilot_core::scopes::ScopeRef;
+    use std::io::Write;
+
+    fn temp_home() -> PathBuf {
+        let home = std::env::temp_dir().join(format!(
+            "cc-providers-test-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&home).unwrap();
+        home
+    }
+
+    fn write_profiles(home: &Path, file: &ProfilesFile) {
+        let dir = home.join(".claude").join("claude-copilot");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("profiles.json");
+        let mut f = std::fs::File::create(&path).unwrap();
+        f.write_all(serde_json::to_string_pretty(file).unwrap().as_bytes())
+            .unwrap();
+        f.write_all(b"\n").unwrap();
+    }
+
+    fn write_user_settings(home: &Path) {
+        let dir = home.join(".claude");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+        std::fs::write(&path, "{}\n").unwrap();
+    }
+
+    #[test]
+    fn activate_profile_fails_when_secret_missing() {
+        let home = temp_home();
+        write_user_settings(&home);
+
+        let mut file = ProfilesFile::default();
+        let profile = Profile {
+            id: "p1".into(),
+            name: "needs-key".into(),
+            kind: ProviderKind::Anthropic,
+            auth_mode: Some(AuthMode::ApiKey),
+            base_url: None,
+            has_secret: false, // key not actually stored
+        };
+        file.profiles.push(profile);
+        write_profiles(&home, &file);
+
+        let result = activate_profile_with_home("p1".into(), ScopeRef::User, &home);
+        assert!(
+            result.is_err(),
+            "activating a profile that requires a missing secret must fail"
+        );
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("no stored secret"),
+            "error should tell the user the secret is missing: {err}"
+        );
+
+        // The settings file must not have been polluted with an empty API key.
+        let settings_path = home.join(".claude").join("settings.json");
+        let text = std::fs::read_to_string(&settings_path).unwrap();
+        assert!(!text.contains("ANTHROPIC_API_KEY"));
+    }
+
+    fn activate_profile_with_home(
+        id: String,
+        scope: ScopeRef,
+        home: &Path,
+    ) -> Result<ActiveProvider, String> {
+        // Re-bind the helpers to the temp home for the test.
+        let file = load(home)?;
+        let profile = file
+            .profiles
+            .into_iter()
+            .find(|p| p.id == id)
+            .ok_or_else(|| format!("profile {id} not found"))?;
+        let secret = match secret_field(profile.kind, profile.auth_mode) {
+            Some(field) => match crate::secrets::get_secret_strict(&id, field)? {
+                Some(value) if !value.is_empty() => Some(value),
+                _ => return Err(format!("profile {} has no stored secret", profile.name)),
+            },
+            None => None,
+        };
+        let pairs = providers::build_env(&profile, secret.as_deref());
+
+        let path = settings::settings_path(&scope, activation_layer(&scope), home)?;
+        let mut doc = settings::read_doc(&path)?;
+        let mut env = env_object(&doc);
+        for k in providers::MANAGED_ENV_KEYS {
+            env.remove(*k);
+        }
+        for (k, v) in pairs {
+            env.insert(k, Value::String(v));
+        }
+        let obj = doc
+            .as_object_mut()
+            .ok_or("settings file is not a JSON object")?;
+        obj.insert("env".to_string(), Value::Object(env));
+        settings::write_doc(&path, &doc)?;
+        state::set_active_provider_id(home, &scope, &id)?;
+        Ok(ActiveProvider::Profile { id })
+    }
 }
