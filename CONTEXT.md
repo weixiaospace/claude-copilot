@@ -16,6 +16,10 @@ _Avoid_: panel, section, tab
 The "just me, just here" config layer — applies to one project, belongs to one person, and is never committed to version control. Sits between User (all projects, personal) and Project (this project, team-shared), and overrides Project on that machine. Claude Code writes here automatically (e.g. in-session permission approvals).
 _Avoid_: personal settings, overrides (when you mean this specific layer)
 
+**Claude subscription**:
+The Claude Pro/Max/Team OAuth login that Claude Code itself uses. The desktop does not manage its own subscription; it reads the active session from Claude Code's storage (macOS keychain entry `Claude Code-credentials`, or `~/.claude/.credentials.json` on other platforms) and can query Anthropic's `api/oauth/usage` endpoint for quota windows. Treating this as "no managed provider env" means the scope falls back to Claude's default subscription authentication.
+_Avoid_: account, login state
+
 **Provider profile**:
 A named API-access configuration (Anthropic / Bedrock / Vertex / Foundry) that the desktop stores, with its secret kept in the OS keychain. The **one** surface in the app that is *not* a view over Claude Code's own config — it is the app's own credential store. Profiles are global and live in the desktop's **own** profiles file, which it fully owns; in v0.1 the desktop does not read or write the VSCode extension's legacy `providers.json` (mutual non-interference). Activating a profile writes the matching `env` into the chosen scope (into the **Local** layer for a Project, so the secret is never committed; into `~/.claude/settings.json` for User). Each scope can have its own active profile. The app does not treat activation as persistent state, but it keeps a transient `active_providers` cache in `state.json` to avoid keychain prompts on startup. On read, it first checks that cache; if missing or stale, it derives the active profile by matching that scope's `env` token against each profile's keychain secret.
 _Avoid_: account, credential, API config
