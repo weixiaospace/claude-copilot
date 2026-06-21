@@ -4,7 +4,7 @@
 
 可视化管理 Claude Code 配置的桌面应用 · A desktop client for managing Claude Code configuration
 
-[![release](https://img.shields.io/badge/release-v0.2.0-D97757)](https://cnb.cool/weixiao.space/claude-copilot/-/releases)
+[![release](https://img.shields.io/badge/release-v0.2.1-D97757)](https://cnb.cool/weixiao.space/claude-copilot/-/releases)
 [![platform](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows-555)](#下载安装)
 [![built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24C8DB)](https://tauri.app)
 
@@ -51,8 +51,8 @@ Claude Copilot 是一个 [Tauri 2](https://tauri.app) 桌面客户端,把 Claude
 
 | 平台 | 文件 |
 |---|---|
-| **macOS**(Apple Silicon) | `ClaudeCopilot_0.2.0_aarch64.dmg` |
-| **Windows**(x64) | `ClaudeCopilot_0.2.0_x64-setup.exe` |
+| **macOS**(Apple Silicon) | `ClaudeCopilot_0.2.1_aarch64.dmg` |
+| **Windows**(x64) | `ClaudeCopilot_0.2.1_x64-setup.exe` |
 
 > **macOS 首次打开**:v0.1 的 mac 包尚未做 Apple 公证,首次打开会被 Gatekeeper 拦。**右键点图标 → 打开**,在弹窗里再次确认即可;或终端执行 `xattr -dr com.apple.quarantine /Applications/ClaudeCopilot.app`。装好后,后续版本会自动更新,无需重复此操作。
 
@@ -87,6 +87,15 @@ pnpm tauri build    # 出包
 发版命令见 [`scripts/`](scripts/) 与 [`.github/workflows/release.yml`](.github/workflows/release.yml)。
 
 ## 更新日志
+
+### v0.2.1
+
+- **钥匙串访问时机与错误提示优化**
+  - 「接入」页面进入时不再读取系统钥匙串，仅在切换/激活 profile 时才读取。
+  - 激活 profile 时若钥匙串访问被拒绝/取消，或密钥缺失，操作会失败且不会污染 `settings.json`。
+  - 错误提示改用 Tauri 原生 dialog 弹窗，并本地化常见钥匙串错误文案。
+- **其他**
+  - Claude 订阅额度仅在用户显式刷新时请求，避免进入页面自动触发 API 调用。
 
 ### v0.2.0
 
