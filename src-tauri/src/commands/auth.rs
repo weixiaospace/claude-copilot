@@ -71,46 +71,78 @@ fn read_credentials(path: &Path) -> Result<CredentialsFile, String> {
     serde_json::from_str(&text).map_err(|e| format!("failed to parse credentials: {e}"))
 }
 
-fn status_from_file(path: &Path) -> Result<AuthStatus, String> {
-    let creds = read_credentials(path)?;
-    let oauth = match creds.claude_ai_oauth {
+/// Read the OAuth entry from the macOS keychain item that Claude Code uses.
+#[cfg(target_os = "macos")]
+fn read_keychain_oauth() -> Option<ClaudeAiOauth> {
+    let output = std::process::Command::new("security")
+        .args(["find-generic-password", "-s", "Claude Code-credentials", "-w"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8(output.stdout).ok()?;
+    let text = text.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let parsed: serde_json::Value = serde_json::from_str(text).ok()?;
+    parsed
+        .get("claudeAiOauth")
+        .and_then(|v| serde_json::from_value::<ClaudeAiOauth>(v.clone()).ok())
+}
+
+/// Read the OAuth entry from `~/.claude/.credentials.json`.
+fn read_file_oauth() -> Result<Option<ClaudeAiOauth>, String> {
+    let home = home_dir()?;
+    let path = home.join(".claude").join(CREDENTIALS_FILE);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let creds = read_credentials(&path)?;
+    Ok(creds.claude_ai_oauth)
+}
+
+/// Read the Claude OAuth entry. On macOS, Claude Code stores the active token in
+/// the login keychain (`Claude Code-credentials`), so we read that first and
+/// fall back to the credentials file. On other platforms the file is the source
+/// of truth.
+fn read_claude_oauth() -> Result<Option<ClaudeAiOauth>, String> {
+    #[cfg(target_os = "macos")]
+    if let Some(oauth) = read_keychain_oauth() {
+        return Ok(Some(oauth));
+    }
+    read_file_oauth()
+}
+
+fn status_from_oauth(oauth: Option<ClaudeAiOauth>) -> AuthStatus {
+    let oauth = match oauth {
         Some(o) => o,
         None => {
-            return Ok(AuthStatus {
+            return AuthStatus {
                 logged_in: false,
                 subscription_type: None,
                 rate_limit_tier: None,
                 expires_at: None,
-            })
+            }
         }
     };
 
     let logged_in = non_empty(&oauth.access_token) || non_empty(&oauth.refresh_token);
 
-    Ok(AuthStatus {
+    AuthStatus {
         logged_in,
         subscription_type: oauth.subscription_type,
         rate_limit_tier: oauth.rate_limit_tier,
         expires_at: oauth.expires_at,
-    })
+    }
 }
 
 /// Check whether the user has a stored Claude subscription OAuth session.
 #[tauri::command]
 pub fn get_claude_auth_status() -> Result<AuthStatus, String> {
-    let home = home_dir()?;
-    let path = home.join(".claude").join(CREDENTIALS_FILE);
-
-    if !path.exists() {
-        return Ok(AuthStatus {
-            logged_in: false,
-            subscription_type: None,
-            rate_limit_tier: None,
-            expires_at: None,
-        });
-    }
-
-    status_from_file(&path)
+    let oauth = read_claude_oauth()?;
+    Ok(status_from_oauth(oauth))
 }
 
 /// Resolve the `claude` executable on PATH, falling back to a few common
@@ -161,13 +193,8 @@ pub fn claude_auth_login() -> Result<(), String> {
 
 /// Read the stored OAuth access token, if any.
 fn read_access_token() -> Result<Option<String>, String> {
-    let home = home_dir()?;
-    let path = home.join(".claude").join(CREDENTIALS_FILE);
-    if !path.exists() {
-        return Ok(None);
-    }
-    let creds = read_credentials(&path)?;
-    Ok(creds.claude_ai_oauth.and_then(|o| o.access_token).filter(|t| !t.is_empty()))
+    let oauth = read_claude_oauth()?;
+    Ok(oauth.and_then(|o| o.access_token).filter(|t| !t.is_empty()))
 }
 
 #[derive(Debug, Deserialize)]
@@ -349,5 +376,21 @@ fn store_quota_cache(quota: ClaudeSubscriptionQuota) {
             fetched_at: Instant::now(),
             quota,
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    #[ignore = "requires local Claude Code keychain entry and network"]
+    fn quota_api_succeeds_with_keychain_token() {
+        let quota = tauri::async_runtime::block_on(get_claude_subscription_quota()).unwrap();
+        println!("quota: {:?}", quota);
+        assert!(quota.logged_in, "should be logged in");
+        assert!(quota.error.is_none(), "quota error: {:?}", quota.error);
+        assert!(!quota.tiers.is_empty(), "should have at least one tier");
     }
 }
