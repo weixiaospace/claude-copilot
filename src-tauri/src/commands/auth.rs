@@ -326,9 +326,12 @@ pub async fn get_claude_subscription_quota() -> Result<ClaudeSubscriptionQuota, 
             }
             if let Ok(window) = serde_json::from_value::<ApiUsageWindow>(value.clone()) {
                 if let Some(util) = window.utilization {
+                    // The endpoint returns utilization as a percentage (0-100),
+                    // but some environments may return a ratio. Normalize to 0-1.
+                    let ratio = if util > 1.0 { util / 100.0 } else { util };
                     tiers.push(RateLimitTier {
                         window: key.clone(),
-                        utilization: util.clamp(0.0, 1.0),
+                        utilization: ratio.clamp(0.0, 1.0),
                         resets_at: window.resets_at.as_deref().and_then(parse_iso_to_seconds),
                     });
                 }
@@ -354,7 +357,7 @@ pub async fn get_claude_subscription_quota() -> Result<ClaudeSubscriptionQuota, 
                 is_enabled: e.is_enabled.unwrap_or(false),
                 monthly_limit: e.monthly_limit,
                 used_credits: e.used_credits,
-                utilization: e.utilization,
+                utilization: e.utilization.map(|u| if u > 1.0 { u / 100.0 } else { u }),
                 currency: e.currency,
             })
     });
