@@ -70,7 +70,21 @@ fn records_in_dir(dir: &Path, out: &mut Vec<UsageRecord>) -> u32 {
 }
 
 #[tauri::command]
-pub fn query_usage(scope: ScopeRef, granularity: Granularity) -> Result<UsageResult, String> {
+pub async fn query_usage(
+    scope: ScopeRef,
+    granularity: Granularity,
+) -> Result<UsageResult, String> {
+    // The scan parses every session JSONL under ~/.claude/projects and can take
+    // a noticeable while. A synchronous command runs on the UI thread, which
+    // freezes the webview (the loading spinner can't even paint) until it
+    // finishes — so run the blocking work on a worker thread and keep the UI
+    // responsive.
+    tauri::async_runtime::spawn_blocking(move || query_usage_blocking(scope, granularity))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn query_usage_blocking(scope: ScopeRef, granularity: Granularity) -> Result<UsageResult, String> {
     let home = home_dir()?;
     let projects_dir = home.join(".claude").join("projects");
     let project_root = match &scope {
