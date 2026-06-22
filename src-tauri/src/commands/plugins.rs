@@ -13,6 +13,7 @@ use claude_copilot_core::plugins::{
     self, AvailablePlugin, BundledKind, BundledResource, InstalledPlugin, Marketplace,
 };
 
+use crate::claude_cli;
 use super::home_dir;
 
 fn read_json(path: &Path) -> Value {
@@ -56,8 +57,40 @@ pub fn list_available_plugins() -> Result<Vec<AvailablePlugin>, String> {
         &enabled_map(&home),
     );
     let ids: Vec<String> = installed.into_iter().map(|p| p.id).collect();
-    let catalog = read_json(&plugins_dir(&home).join("plugin-catalog-cache.json"));
-    Ok(plugins::parse_catalog(&catalog, &ids))
+
+    let markets_json = read_json(&plugins_dir(&home).join("known_marketplaces.json"));
+    let markets = plugins::parse_marketplaces(&markets_json);
+
+    let mut out = Vec::new();
+    if !markets.is_empty() {
+        // Newer Claude CLI keeps per-marketplace manifests instead of a single
+        // plugin-catalog-cache.json.
+        for m in markets {
+            let manifest_path = marketplace_manifest_path(&m.install_location);
+            let manifest = read_json(&manifest_path);
+            out.extend(plugins::parse_marketplace_catalog(&manifest, &ids));
+        }
+    } else {
+        // Legacy cache file used by older Claude CLI versions.
+        let catalog = read_json(&plugins_dir(&home).join("plugin-catalog-cache.json"));
+        out.extend(plugins::parse_catalog(&catalog, &ids));
+    }
+
+    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(out)
+}
+
+/// Resolve the marketplace manifest path from a Claude CLI installLocation.
+/// Git-backed marketplaces are cloned to a directory containing
+/// `.claude-plugin/marketplace.json`; URL-backed marketplaces are downloaded to
+/// a single file at that path.
+fn marketplace_manifest_path(install_location: &str) -> PathBuf {
+    let path = Path::new(install_location);
+    if path.is_dir() {
+        path.join(".claude-plugin").join("marketplace.json")
+    } else {
+        path.to_path_buf()
+    }
 }
 
 /// List the resources a plugin ships, scanning its install dir read-only.
@@ -139,12 +172,11 @@ fn collect_markdown(dir: &Path, kind: BundledKind, out: &mut Vec<BundledResource
 
 /// Run a `claude plugin …` subcommand, mapping a missing binary to a clear error.
 fn run_claude(args: &[&str]) -> Result<String, String> {
-    let output = Command::new("claude").args(args).output().map_err(|e| {
-        if e.kind() == std::io::ErrorKind::NotFound {
-            "Claude CLI not found on PATH. Install Claude Code to manage plugins.".to_string()
-        } else {
-            format!("failed to run claude: {e}")
-        }
+    let binary = claude_cli::resolve_claude_path().ok_or_else(|| {
+        "Claude CLI (claude) not found on PATH. Install Claude Code to manage plugins and marketplaces.".to_string()
+    })?;
+    let output = Command::new(&binary).args(args).output().map_err(|e| {
+        format!("failed to run claude ({}): {e}", binary.display())
     })?;
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
@@ -173,7 +205,8 @@ pub fn toggle_plugin(name: String, enable: bool) -> Result<(), String> {
 
 #[tauri::command]
 pub fn add_marketplace(source: String) -> Result<(), String> {
-    run_claude(&["plugin", "marketplace", "add", &source]).map(|_| ())
+    let normalized = claude_cli::normalize_marketplace_source(&source);
+    run_claude(&["plugin", "marketplace", "add", &normalized]).map(|_| ())
 }
 
 #[tauri::command]
@@ -186,5 +219,31 @@ pub fn update_marketplace(name: Option<String>) -> Result<(), String> {
     match name {
         Some(n) => run_claude(&["plugin", "marketplace", "update", &n]).map(|_| ()),
         None => run_claude(&["plugin", "marketplace", "update"]).map(|_| ()),
+    }
+}
+
+#[cfg(test)]
+mod smoke {
+    use super::*;
+
+    /// Diagnostic: list available plugins from real marketplace manifests.
+    /// `cargo test -p claude-copilot-desktop -- --ignored list_real_available --nocapture`
+    #[test]
+    #[ignore = "reads the real ~/.claude/plugins; run manually"]
+    fn list_real_available() {
+        let plugins = list_available_plugins().unwrap();
+        eprintln!("{} available plugins:", plugins.len());
+        let mut markets: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        for p in &plugins {
+            markets.insert(&p.marketplace);
+            if p.marketplace == "dacheng" {
+                eprintln!(
+                    "  DACHENG: {}@{} v{} installed={}",
+                    p.name, p.marketplace, p.version, p.installed
+                );
+            }
+        }
+        eprintln!("markets: {:?}", markets);
+        assert!(!plugins.is_empty(), "should find at least one available plugin");
     }
 }

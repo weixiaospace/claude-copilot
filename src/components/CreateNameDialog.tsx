@@ -2,6 +2,7 @@ import { useState } from "preact/hooks";
 import { Modal } from "./ui/Modal";
 import { Button } from "./ui/button";
 import { t } from "../lib/i18n";
+import { notifyError } from "../lib/notify";
 
 /** Shared name-only create dialog (skills/agents/rules/workflows/output/memory). */
 export function CreateNameDialog({
@@ -18,11 +19,9 @@ export function CreateNameDialog({
   onCreate: (name: string) => Promise<void> | void;
 }) {
   const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
   function close() {
     setName("");
-    setError(null);
     onClose();
   }
 
@@ -33,7 +32,7 @@ export function CreateNameDialog({
       await onCreate(n);
       close();
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
 
@@ -61,7 +60,6 @@ export function CreateNameDialog({
           if (e.key === "Enter") void submit();
         }}
       />
-      {error && <div class="mt-2 text-sm text-red-500">{error}</div>}
     </Modal>
   );
 }

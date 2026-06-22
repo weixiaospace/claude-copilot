@@ -4,7 +4,6 @@ import type { Scope } from "../types/Scope";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { FileResource } from "../types/FileResource";
 import { invoke } from "../lib/ipc";
-import { fsTick } from "../lib/signals";
 import { t } from "../lib/i18n";
 import { ResourcePanel } from "./ResourcePanel";
 import { HooksPanel } from "./HooksPanel";
@@ -12,6 +11,7 @@ import { McpPanel } from "./McpPanel";
 import { MemoryPanel } from "./MemoryPanel";
 import { OutputStylesPanel } from "./OutputStylesPanel";
 import { PluginsPanel } from "./PluginsPanel";
+import { SkillsPanel } from "./SkillsPanel";
 import { UsagePanel } from "./UsagePanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { SessionsPanel } from "./SessionsPanel";
@@ -161,7 +161,7 @@ export function ResourceArea({ scope }: { scope: Scope }) {
           </button>
         ))}
       </div>
-      <div key={`${scope.id}:${fsTick.value}`} class="min-h-0 flex-1">
+      <div class="min-h-0 flex-1">
         {tab === "memory" && scope.kind === "project" ? (
           <MemoryPanel key={`${scope.id}:memory`} projectId={scope.id} />
         ) : tab === "sessions" && scope.kind === "project" ? (
@@ -170,6 +170,14 @@ export function ResourceArea({ scope }: { scope: Scope }) {
           <OutputStylesPanel key={`${scope.id}:output_styles`} scope={ref} />
         ) : tab === "plugins" ? (
           <PluginsPanel key="plugins" />
+        ) : tab === "skills" ? (
+          <SkillsPanel
+            key={`${scope.id}:skills`}
+            scope={ref}
+            onCreateSkill={async (name) => {
+              await invoke("create_skill", { scope: ref, name });
+            }}
+          />
         ) : tab === "hooks" ? (
           <HooksPanel key={`${scope.id}:hooks`} scope={ref} />
         ) : tab === "mcp" ? (

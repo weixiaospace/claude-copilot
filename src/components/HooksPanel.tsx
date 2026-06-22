@@ -3,6 +3,8 @@ import type { ScopeRef } from "../types/ScopeRef";
 import type { HookEntry } from "../types/HookEntry";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
+import { notifyError } from "../lib/notify";
+import { useFsRefresh } from "../lib/useFsRefresh";
 import { PanelHeader } from "./PanelHeader";
 
 type Group = { source: string; path: string | null; entries: HookEntry[] };
@@ -24,14 +26,12 @@ function groupBySource(entries: HookEntry[]): Group[] {
 /** Read-only merged view of hooks for a scope, grouped by source file. */
 export function HooksPanel({ scope }: { scope: ScopeRef }) {
   const [entries, setEntries] = useState<HookEntry[]>([]);
-  const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
     try {
       setEntries(await invoke("list_hooks", { scope }));
-      setError(null);
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
 
@@ -39,6 +39,7 @@ export function HooksPanel({ scope }: { scope: ScopeRef }) {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(scope)]);
+  useFsRefresh(refresh);
 
   const groups = groupBySource(entries);
 
@@ -46,8 +47,7 @@ export function HooksPanel({ scope }: { scope: ScopeRef }) {
     <div class="flex h-full flex-col">
       <PanelHeader onRefresh={() => void refresh()} />
       <div class="min-h-0 flex-1 overflow-auto px-6 pb-3">
-        {error && <div class="text-sm text-red-500">{error}</div>}
-        {!error && groups.length === 0 && (
+        {groups.length === 0 && (
           <div class="py-6 text-sm text-neutral-400">{t("hooks.empty")}</div>
         )}
         {groups.map((g) => (

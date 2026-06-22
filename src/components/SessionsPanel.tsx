@@ -1,5 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { Play } from "lucide-preact";
+import { notifyError } from "../lib/notify";
+import { useFsRefresh } from "../lib/useFsRefresh";
 import type { Session } from "../types/Session";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
@@ -9,26 +11,25 @@ import { Button } from "./ui/button";
 /** Project sessions: list transcripts and resume / start one in a terminal. */
 export function SessionsPanel({ projectId }: { projectId: string }) {
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
     try {
       setSessions(await invoke("list_sessions", { projectId }));
-      setError(null);
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
   useEffect(() => {
     void refresh();
     // eslint-disable-next-line
   }, [projectId]);
+  useFsRefresh(refresh);
 
   async function open(tool: string, sessionId: string | null) {
     try {
       await invoke("open_terminal", { projectId, tool, sessionId });
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
 
@@ -48,8 +49,6 @@ export function SessionsPanel({ projectId }: { projectId: string }) {
           </>
         }
       />
-
-      {error && <div class="px-6 pb-1 text-sm text-red-500">{error}</div>}
 
       <div class="min-h-0 flex-1 overflow-auto px-3 pb-4">
         {sessions.length === 0 ? (

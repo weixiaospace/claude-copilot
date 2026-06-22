@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { notifyError } from "../lib/notify";
 import {
   ChevronDown,
   ChevronRight,
@@ -19,6 +20,7 @@ import type { BundledKind } from "../types/BundledKind";
 import type { FileResource } from "../types/FileResource";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
+import { useFsRefresh } from "../lib/useFsRefresh";
 import { ResourceDetail } from "./ResourceDetail";
 import { PanelHeader } from "./PanelHeader";
 import { Segmented } from "./ui/Segmented";
@@ -97,7 +99,6 @@ export function PluginsPanel() {
   const [query, setQuery] = useState("");
   const [marketFilter, setMarketFilter] = useState("");
   const [addingMarket, setAddingMarket] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function refresh() {
@@ -110,7 +111,6 @@ export function PluginsPanel() {
       setPlugins(p);
       setMarkets(m);
       setCatalog(c);
-      setError(null);
       // Eager-load bundled resources for installed plugins (usually few) so the
       // cards can show resource counts without expanding each one.
       const entries = await Promise.all(
@@ -126,22 +126,22 @@ export function PluginsPanel() {
       );
       setBundled(Object.fromEntries(entries));
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
   useEffect(() => {
     void refresh();
   }, []);
+  useFsRefresh(refresh);
 
   // Wrap a CLI mutation: surface errors, refresh on success.
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
     try {
       await fn();
-      setError(null);
       await refresh();
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     } finally {
       setBusy(false);
     }
@@ -218,8 +218,6 @@ export function PluginsPanel() {
         createLabel={tab === "marketplaces" ? t("plugins.addMarketplace") : undefined}
         onCreate={tab === "marketplaces" ? () => setAddingMarket(true) : undefined}
       />
-
-      {error && <div class="px-6 pb-1 text-sm text-red-500">{error}</div>}
 
       <div class="min-h-0 flex-1 overflow-auto px-6 pb-6">
         {/* ── Marketplaces ── */}

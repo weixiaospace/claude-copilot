@@ -28,6 +28,26 @@ _Avoid_: account, credential, API config
 A scope whose Claude `env`/auth is set to something that matches **none** of the app's profiles — set outside the app, by hand, by the `claude` CLI, or another tool. One of the three per-scope activation states, alongside "a known profile is active" and "no provider env (subscription / default)". The app surfaces it as-is; it does not try to claim or rewrite it.
 _Avoid_: unknown, broken, invalid, orphan
 
+**Marketplace**:
+A Claude Code plugin registry: a Git repository that ships `.claude-plugin/marketplace.json`, listing one or more plugins. The desktop's Plugins panel can add a marketplace by URL; plugins from that marketplace then appear under the "Available" tab.
+_Avoid_: store, catalog, plugin list
+
+**Plugin**:
+A Claude Code extension unit distributed through a marketplace and installed via `claude plugin install`. A plugin bundles skills, agents, commands, hooks, MCP servers, or other Claude Code customization surfaces. The desktop delegates plugin install/uninstall/enable/disable to the `claude` CLI.
+_Avoid_: extension, add-on, package
+
+**Skill**:
+A single Claude Code customization consisting of a directory containing a `SKILL.md` file with frontmatter (`name`, `description`). Skills are invoked via `/skill-name` and live in `~/.claude/skills/` (User scope) or `<repo>/.claude/skills/` (Project scope). The desktop's Skills panel manages them as file resources.
+_Avoid_: prompt, command, capability
+
+**Skill source**:
+A Git repository that contains one or more skills but has **no** `.claude-plugin/marketplace.json`. The desktop's Skills panel can track a skill source, clone it, and expose its skills for selective installation into the current scope's skills directory. Skill sources are managed separately from marketplaces.
+_Avoid_: marketplace (it is not one), skills-only marketplace, skill pack
+
+**Skills-only repository** (raw skills repo):
+Synonym for **skill source**. A Git repository of skills without a marketplace manifest.
+_Avoid_: marketplace (when it has no manifest), skill pack
+
 **Project slug**:
 Claude Code's lossy directory name for a Project under `~/.claude/projects/`, derived from the Project's path by collapsing `/`, `.`, and similar characters to `-`. The mapping is **one-way**: a slug cannot be reversed back to a real path (you can't tell which `-` was a `/`). To recover a Project's real path from a slug, read the `cwd` field of a session record inside that slug's directory.
 _Avoid_: project id, project key, encoded path

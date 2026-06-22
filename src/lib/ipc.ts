@@ -18,6 +18,7 @@ import type { AuthStatus } from "../types/AuthStatus";
 import type { ClaudeSubscriptionQuota } from "../types/ClaudeSubscriptionQuota";
 import type { UsageResult } from "../types/UsageResult";
 import type { Session } from "../types/Session";
+import type { SkillSource } from "../types/SkillSource";
 
 /**
  * Typed map of every IPC command: its argument shape and result.
@@ -76,6 +77,12 @@ export interface Commands {
   add_marketplace: { args: { source: string }; result: void };
   remove_marketplace: { args: { name: string }; result: void };
   update_marketplace: { args: { name: string | null }; result: void };
+  list_skill_sources: { args: { scope: ScopeRef }; result: SkillSource[] };
+  add_skill_source: { args: { url: string }; result: void };
+  update_skill_source: { args: { name: string }; result: void };
+  remove_skill_source: { args: { name: string }; result: void };
+  install_skill_from_source: { args: { source: string; skill: string; scope: ScopeRef }; result: void };
+  uninstall_skill: { args: { name: string; scope: ScopeRef }; result: void };
   list_profiles: { args: { input: { check_secrets?: boolean } }; result: Profile[] };
   create_profile: { args: { input: ProfileInput; secret: string | null }; result: Profile };
   update_profile: {

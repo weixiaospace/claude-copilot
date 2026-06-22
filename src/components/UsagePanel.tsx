@@ -1,5 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { Loader2 } from "lucide-preact";
+import { notifyError } from "../lib/notify";
+import { useFsRefresh } from "../lib/useFsRefresh";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { UsageResult } from "../types/UsageResult";
 import type { UsageBucket } from "../types/UsageBucket";
@@ -90,7 +92,6 @@ export function UsagePanel({ scope }: { scope: ScopeRef }) {
   const [granularity, setGranularity] = useState<Granularity>("day");
   const [day, setDay] = useState<UsageResult | null>(() => dayCache.get(scopeKey) ?? null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function load(force = false) {
     if (!force) {
@@ -105,9 +106,8 @@ export function UsagePanel({ scope }: { scope: ScopeRef }) {
       const r = await invoke("query_usage", { scope, granularity: "day" });
       dayCache.set(scopeKey, r);
       setDay(r);
-      setError(null);
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     } finally {
       setLoading(false);
     }
@@ -117,6 +117,9 @@ export function UsagePanel({ scope }: { scope: ScopeRef }) {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeKey]);
+  // Usage scans are expensive; force a fresh scan only on an explicit fs/global
+  // refresh (the in-memory dayCache is bypassed).
+  useFsRefresh(() => load(true));
 
   const data = day ? rebucket(day, granularity) : null;
 
@@ -148,8 +151,6 @@ export function UsagePanel({ scope }: { scope: ScopeRef }) {
       />
 
       <div class="min-h-0 flex-1 overflow-auto px-6 pb-6">
-        {error && <div class="text-sm text-red-500">{error}</div>}
-
         {loading && !data && (
           <div class="flex items-center gap-2 py-8 text-sm text-neutral-400">
             <Loader2 size={16} class="animate-spin" />
@@ -157,7 +158,7 @@ export function UsagePanel({ scope }: { scope: ScopeRef }) {
           </div>
         )}
 
-        {data && data.buckets.length === 0 && !error && !loading && (
+        {data && data.buckets.length === 0 && !loading && (
           <div class="py-8 text-sm text-neutral-400">{t("usage.empty")}</div>
         )}
 

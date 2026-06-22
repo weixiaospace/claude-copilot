@@ -14,13 +14,14 @@
 //! (`api.anthropic.com/api/oauth/usage`) using the stored access token, matching
 //! the behaviour of `cc-switch`.
 
-use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
+
+use crate::claude_cli;
 
 use claude_copilot_core::auth::AuthStatus;
 use claude_copilot_core::subscription::{
@@ -154,38 +155,11 @@ pub fn get_claude_auth_status() -> Result<AuthStatus, String> {
     Ok(status_from_oauth(oauth))
 }
 
-/// Resolve the `claude` executable on PATH, falling back to a few common
-/// absolute locations on macOS.
-fn resolve_claude_path() -> Option<PathBuf> {
-    let name = if cfg!(windows) { "claude.exe" } else { "claude" };
-
-    if let Ok(path) = env::var("PATH") {
-        for dir in env::split_paths(&path) {
-            let candidate = dir.join(name);
-            if candidate.is_file() {
-                return Some(candidate);
-            }
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        for dir in ["/opt/homebrew/bin", "/usr/local/bin", "~/.cargo/bin"] {
-            let candidate = PathBuf::from(dir).join(name);
-            if candidate.is_file() {
-                return Some(candidate);
-            }
-        }
-    }
-
-    None
-}
-
 /// Open a system terminal running `claude auth login --claudeai` so the user
 /// can sign in through the official Claude Code OAuth flow.
 #[tauri::command]
 pub fn claude_auth_login() -> Result<(), String> {
-    let claude = resolve_claude_path()
+    let claude = claude_cli::resolve_claude_path()
         .ok_or_else(|| "Claude CLI (claude) not found on PATH. Please install Claude Code.".to_string())?;
 
     let home = home_dir()?;

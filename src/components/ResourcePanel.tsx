@@ -1,5 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import type { FileResource } from "../types/FileResource";
+import { notifyError } from "../lib/notify";
+import { useFsRefresh } from "../lib/useFsRefresh";
 import { t } from "../lib/i18n";
 import { ResourceList } from "./ResourceList";
 import { ResourceDetail } from "./ResourceDetail";
@@ -25,15 +27,13 @@ export function ResourcePanel({
 }) {
   const [items, setItems] = useState<FileResource[]>([]);
   const [selected, setSelected] = useState<FileResource | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   async function refresh() {
     try {
       setItems(await load());
-      setError(null);
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
 
@@ -41,6 +41,7 @@ export function ResourcePanel({
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useFsRefresh(refresh);
 
   async function onRemove(resource: FileResource) {
     try {
@@ -49,7 +50,7 @@ export function ResourcePanel({
         await refresh();
       }
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
 
@@ -59,8 +60,6 @@ export function ResourcePanel({
         onRefresh={() => void refresh()}
         onCreate={create ? () => setCreating(true) : undefined}
       />
-
-      {error && <div class="px-6 pb-1 text-sm text-red-500">{error}</div>}
 
       <div class="flex-1 overflow-auto px-3">
         <ResourceList items={items} emptyLabel={t("resource.empty")} onSelect={setSelected} />

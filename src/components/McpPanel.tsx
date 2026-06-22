@@ -1,5 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { notifyError } from "../lib/notify";
+import { useFsRefresh } from "../lib/useFsRefresh";
 import { X } from "lucide-preact";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { McpServer } from "../types/McpServer";
@@ -32,7 +34,6 @@ function groupBySource(servers: McpServer[]): Group[] {
  *  add/remove go through the `claude mcp` CLI. */
 export function McpPanel({ scope }: { scope: ScopeRef }) {
   const [servers, setServers] = useState<McpServer[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
@@ -43,9 +44,8 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
   async function refresh() {
     try {
       setServers(await invoke("list_mcp", { scope }));
-      setError(null);
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
 
@@ -53,6 +53,7 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
+  useFsRefresh(refresh);
 
   async function add() {
     if (!name.trim() || !target.trim()) return;
@@ -63,7 +64,7 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
       setCreating(false);
       await refresh();
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
 
@@ -73,7 +74,7 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
       await invoke("remove_mcp", { scope, name: s.name, source: s.source });
       await refresh();
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
 
@@ -83,10 +84,8 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
     <div class="flex h-full flex-col">
       <PanelHeader onRefresh={() => void refresh()} onCreate={() => setCreating(true)} />
 
-      {error && <div class="px-6 pb-1 text-sm text-red-500">{error}</div>}
-
       <div class="flex-1 overflow-auto px-6 pb-3">
-        {!error && servers.length === 0 && (
+        {servers.length === 0 && (
           <div class="py-6 text-sm text-neutral-400">{t("mcp.empty")}</div>
         )}
         {groups.map((g) => (

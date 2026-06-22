@@ -11,6 +11,7 @@ pub mod resources;
 pub mod scopes;
 pub mod sessions;
 pub mod settings;
+pub mod skills;
 pub mod ui;
 pub mod usage;
 

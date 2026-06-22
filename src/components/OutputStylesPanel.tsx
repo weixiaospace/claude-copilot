@@ -5,6 +5,8 @@ import type { ScopeRef } from "../types/ScopeRef";
 import type { FileResource } from "../types/FileResource";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
+import { notifyError } from "../lib/notify";
+import { useFsRefresh } from "../lib/useFsRefresh";
 import { ResourceDetail } from "./ResourceDetail";
 import { PanelHeader } from "./PanelHeader";
 import { CreateNameDialog } from "./CreateNameDialog";
@@ -19,7 +21,6 @@ export function OutputStylesPanel({ scope }: { scope: ScopeRef }) {
   const [items, setItems] = useState<FileResource[]>([]);
   const [active, setActive] = useState<string | null>(null);
   const [selected, setSelected] = useState<FileResource | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   async function refresh() {
@@ -30,9 +31,8 @@ export function OutputStylesPanel({ scope }: { scope: ScopeRef }) {
       ]);
       setItems(list);
       setActive(act);
-      setError(null);
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
 
@@ -40,13 +40,14 @@ export function OutputStylesPanel({ scope }: { scope: ScopeRef }) {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useFsRefresh(refresh);
 
   async function setActiveStyle(name: string) {
     try {
       await invoke("set_active_output_style", { scope, name });
       setActive(name);
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
 
@@ -61,8 +62,6 @@ export function OutputStylesPanel({ scope }: { scope: ScopeRef }) {
   return (
     <div class="flex h-full flex-col">
       <PanelHeader onRefresh={() => void refresh()} onCreate={() => setCreating(true)} />
-
-      {error && <div class="px-6 pb-1 text-sm text-red-500">{error}</div>}
 
       <div class="flex-1 overflow-auto px-3">
         {items.length === 0 ? (

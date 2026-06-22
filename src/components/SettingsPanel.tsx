@@ -5,6 +5,8 @@ import type { ScopeRef } from "../types/ScopeRef";
 import { invoke } from "../lib/ipc";
 import { providersTick } from "../lib/signals";
 import { t } from "../lib/i18n";
+import { notifyError } from "../lib/notify";
+import { useFsRefresh } from "../lib/useFsRefresh";
 import { PanelHeader } from "./PanelHeader";
 import { Segmented } from "./ui/Segmented";
 import { Button } from "./ui/button";
@@ -81,21 +83,26 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
   const [doc, setDoc] = useState<Doc>({});
   const [raw, setRaw] = useState(false);
   const [rawText, setRawText] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [jsonError, setJsonError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
-  useEffect(() => {
+  function reload() {
     invoke("read_settings", { scope: ref, layer })
       .then((d) => {
         setDoc(asObject(d));
         setRaw(false);
-        setError(null);
+        setJsonError(null);
         setStatus(null);
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => void notifyError(e));
+  }
+
+  useEffect(() => {
+    reload();
     // Re-read when an activation elsewhere rewrites this scope's env block.
     // eslint-disable-next-line
   }, [layer, scope.id, providersTick.value]);
+  useFsRefresh(reload);
 
   const permissions = asObject(doc.permissions);
   const setPerm = (key: string, vals: string[]) =>
@@ -116,9 +123,9 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
       try {
         setDoc(asObject(JSON.parse(rawText)));
         setRaw(false);
-        setError(null);
+        setJsonError(null);
       } catch (e) {
-        setError(`${t("settings.invalidJson")}: ${e}`);
+        setJsonError(`${t("settings.invalidJson")}: ${e}`);
       }
     }
   }
@@ -134,16 +141,16 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
         toWrite = parsed;
         setDoc(parsed);
       } catch (e) {
-        setError(`${t("settings.invalidJson")}: ${e}`);
+        setJsonError(`${t("settings.invalidJson")}: ${e}`);
         return;
       }
     }
     try {
       await invoke("write_settings", { scope: ref, layer, value: toWrite });
-      setError(null);
+      setJsonError(null);
       setStatus(t("settings.saved"));
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
 
@@ -169,7 +176,7 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
         }
       />
 
-      {error && <div class="px-6 pb-1 text-sm text-red-500">{error}</div>}
+      {jsonError && <div class="px-6 pb-1 text-sm text-red-500">{jsonError}</div>}
       {status && <div class="px-6 pb-1 text-sm text-green-600">{status}</div>}
 
       <div class="min-h-0 flex-1 overflow-auto px-6 pb-6">

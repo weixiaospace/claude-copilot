@@ -182,6 +182,54 @@ pub fn parse_catalog(catalog: &Value, installed_ids: &[String]) -> Vec<Available
     out
 }
 
+/// Parse a marketplace manifest (`marketplace.json`) into available plugins,
+/// marking those already installed. Newer Claude CLI versions no longer keep a
+/// single `plugin-catalog-cache.json`; each marketplace ships its own manifest
+/// under `.claude-plugin/marketplace.json`.
+pub fn parse_marketplace_catalog(manifest: &Value, installed_ids: &[String]) -> Vec<AvailablePlugin> {
+    let mut out = Vec::new();
+    let marketplace = manifest
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let Some(plugins) = manifest.get("plugins").and_then(Value::as_array) else {
+        return out;
+    };
+
+    for entry in plugins {
+        let name = entry
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        if name.is_empty() {
+            continue;
+        }
+        let id = format!("{name}@{marketplace}");
+        let s = |k: &str| entry.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
+        // `author` may be a string or an object like `{ "name": "…" }`.
+        let author = entry
+            .get("author")
+            .and_then(|a| {
+                a.as_str()
+                    .map(String::from)
+                    .or_else(|| a.get("name").and_then(Value::as_str).map(String::from))
+            })
+            .unwrap_or_default();
+        out.push(AvailablePlugin {
+            id: id.clone(),
+            name,
+            marketplace: marketplace.to_string(),
+            installed: installed_ids.iter().any(|x| x == &id),
+            description: s("description"),
+            version: s("version"),
+            author,
+        });
+    }
+    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -252,5 +300,44 @@ mod tests {
         let gamma = got.iter().find(|p| p.name == "gamma").unwrap();
         assert_eq!(gamma.description, "");
         assert_eq!(gamma.author, "");
+    }
+
+    #[test]
+    fn parses_marketplace_manifest() {
+        let manifest = json!({
+            "name": "dacheng",
+            "owner": { "name": "yuzi" },
+            "plugins": [
+                {
+                    "name": "dacheng",
+                    "source": "./",
+                    "description": "Skills library",
+                    "version": "1.0.2"
+                }
+            ]
+        });
+        let got = parse_marketplace_catalog(&manifest, &[]);
+        assert_eq!(got.len(), 1);
+        let p = &got[0];
+        assert_eq!(p.id, "dacheng@dacheng");
+        assert_eq!(p.name, "dacheng");
+        assert_eq!(p.marketplace, "dacheng");
+        assert_eq!(p.description, "Skills library");
+        assert_eq!(p.version, "1.0.2");
+        assert!(!p.installed);
+    }
+
+    #[test]
+    fn parses_marketplace_manifest_marks_installed() {
+        let manifest = json!({
+            "name": "official",
+            "plugins": [
+                { "name": "alpha", "description": "A" },
+                { "name": "gamma", "description": "G" }
+            ]
+        });
+        let got = parse_marketplace_catalog(&manifest, &["alpha@official".to_string()]);
+        assert!(got.iter().find(|p| p.name == "alpha").unwrap().installed);
+        assert!(!got.iter().find(|p| p.name == "gamma").unwrap().installed);
     }
 }

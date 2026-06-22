@@ -1,5 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { notifyError } from "../lib/notify";
+import { useFsRefresh } from "../lib/useFsRefresh";
 import type { FileResource } from "../types/FileResource";
 import type { MemoryInfo } from "../types/MemoryInfo";
 import { invoke } from "../lib/ipc";
@@ -14,7 +16,6 @@ export function MemoryPanel({ projectId }: { projectId: string }) {
   const [items, setItems] = useState<FileResource[]>([]);
   const [info, setInfo] = useState<MemoryInfo | null>(null);
   const [selected, setSelected] = useState<FileResource | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   async function refresh() {
@@ -25,9 +26,8 @@ export function MemoryPanel({ projectId }: { projectId: string }) {
       ]);
       setItems(list);
       setInfo(mi);
-      setError(null);
     } catch (e) {
-      setError(String(e));
+      await notifyError(e);
     }
   }
 
@@ -36,6 +36,7 @@ export function MemoryPanel({ projectId }: { projectId: string }) {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
+  useFsRefresh(refresh);
 
   async function remove(resource: FileResource) {
     const ok = await confirm(t("memory.confirmDelete"), { kind: "warning" });
@@ -62,8 +63,6 @@ export function MemoryPanel({ projectId }: { projectId: string }) {
           )}
         </div>
       )}
-
-      {error && <div class="px-6 pb-1 text-sm text-red-500">{error}</div>}
 
       <div class="flex-1 overflow-auto px-3">
         <ResourceList items={items} emptyLabel={t("memory.empty")} onSelect={setSelected} />

@@ -1,3 +1,4 @@
+mod claude_cli;
 mod commands;
 mod secrets;
 mod state;
@@ -70,6 +71,12 @@ pub fn run() {
             commands::plugins::add_marketplace,
             commands::plugins::remove_marketplace,
             commands::plugins::update_marketplace,
+            commands::skills::list_skill_sources,
+            commands::skills::add_skill_source,
+            commands::skills::update_skill_source,
+            commands::skills::remove_skill_source,
+            commands::skills::install_skill_from_source,
+            commands::skills::uninstall_skill,
             commands::providers::list_profiles,
             commands::providers::create_profile,
             commands::providers::update_profile,

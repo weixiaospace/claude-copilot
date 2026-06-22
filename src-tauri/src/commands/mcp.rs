@@ -10,6 +10,7 @@ use serde_json::Value;
 use claude_copilot_core::mcp::{self, McpServer, McpSource};
 use claude_copilot_core::scopes::ScopeRef;
 
+use crate::claude_cli;
 use super::home_dir;
 
 fn read_json(path: &Path) -> Option<Value> {
@@ -51,14 +52,16 @@ pub fn list_mcp(scope: ScopeRef) -> Result<Vec<McpServer>, String> {
 
 /// Run `claude mcp …`, in the project root for project/local scope.
 fn run_claude(scope: &ScopeRef, args: &[String]) -> Result<(), String> {
-    let mut cmd = Command::new("claude");
+    let binary = claude_cli::resolve_claude_path()
+        .ok_or_else(|| "Claude CLI (claude) not found on PATH. Install Claude Code to manage MCP servers.".to_string())?;
+    let mut cmd = Command::new(&binary);
     cmd.arg("mcp").args(args);
     if let ScopeRef::Project { id } = scope {
         cmd.current_dir(id);
     }
     let output = cmd
         .output()
-        .map_err(|e| format!("failed to run `claude` (is it on PATH?): {e}"))?;
+        .map_err(|e| format!("failed to run claude ({}): {e}", binary.display()))?;
     if output.status.success() {
         Ok(())
     } else {
