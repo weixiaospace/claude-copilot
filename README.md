@@ -4,7 +4,7 @@
 
 可视化管理 Claude Code 配置的桌面应用 · A desktop client for managing Claude Code configuration
 
-[![release](https://img.shields.io/badge/release-v0.2.2-D97757)](https://cnb.cool/weixiao.space/claude-copilot/-/releases)
+[![release](https://img.shields.io/badge/release-v0.2.3-D97757)](https://cnb.cool/weixiao.space/claude-copilot/-/releases)
 [![platform](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows-555)](#下载安装)
 [![built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24C8DB)](https://tauri.app)
 
@@ -30,7 +30,7 @@ Claude Copilot 是一个 [Tauri 2](https://tauri.app) 桌面客户端,把 Claude
 | **Rules** | 规则 | User · Project |
 | **Output Styles** | 输出风格,含 User 层激活态 | User · Project |
 | **Hooks** | 只读的合并视图,逐行标注来源(user/plugin 或 project/local) | User · Project |
-| **MCP** | MCP 服务器,直接读 JSON,写入走 `claude mcp` | User · Project |
+| **MCP** | MCP 服务器,直接读 JSON、写入走 `claude mcp`;支持查看/编辑、连接健康检查、`.mcp.json` 信任状态 | User · Project |
 | **Memory** | 项目记忆 | 仅 Project |
 | **Plugins** | 已装插件 | 仅 User |
 | **Settings** | 高频字段的类型化控件 + 长尾字段的结构化编辑器 | User · Project |
@@ -51,8 +51,8 @@ Claude Copilot 是一个 [Tauri 2](https://tauri.app) 桌面客户端,把 Claude
 
 | 平台 | 文件 |
 |---|---|
-| **macOS**(Apple Silicon) | `ClaudeCopilot_0.2.2_aarch64.dmg` |
-| **Windows**(x64) | `ClaudeCopilot_0.2.2_x64-setup.exe` |
+| **macOS**(Apple Silicon) | `ClaudeCopilot_0.2.3_aarch64.dmg` |
+| **Windows**(x64) | `ClaudeCopilot_0.2.3_x64-setup.exe` |
 
 > **macOS 首次打开**:v0.1 的 mac 包尚未做 Apple 公证,首次打开会被 Gatekeeper 拦。**右键点图标 → 打开**,在弹窗里再次确认即可;或终端执行 `xattr -dr com.apple.quarantine /Applications/ClaudeCopilot.app`。装好后,后续版本会自动更新,无需重复此操作。
 
@@ -87,6 +87,26 @@ pnpm tauri build    # 出包
 发版命令见 [`scripts/`](scripts/) 与 [`.github/workflows/release.yml`](.github/workflows/release.yml)。
 
 ## 更新日志
+
+### v0.2.3
+
+- **全面反馈与交互打磨**
+  - 新增非阻塞 toast 提示系统，替代会打断操作的原生弹窗；操作的成功/失败、加载中状态全程可见。
+  - 各面板补齐加载态（首屏不再空白）；刷新按钮按下即转圈反馈；对话框统一支持点背景 / Esc 关闭、表单非法时禁用提交、密钥输入框可显隐。
+  - 市场 / 技能来源更新显示「上次更新」时间（市场读取 CLI 真实的 `lastUpdated`）。
+- **性能**
+  - 用量扫描移出 UI 线程（`spawn_blocking`），进入「用量」不再卡死，加载转圈正常显示。
+- **MCP 大幅增强**
+  - 修复 stdio 多参数命令被错误存储的问题；新增 env / headers、范围选择（项目默认写本地，密钥不进版本库）。
+  - 新增服务器**详情**视图（command/args/env/headers，密钥掩码）、**编辑**、按需**连接健康检查**（✓/✗）。
+  - 项目 `.mcp.json` 服务器显示**信任状态**徽章（待批准 / 已批准 / 已拒绝，只读）。
+  - 列表卡片化，与其它面板统一观感。
+- **资源面板统一**
+  - 子代理 / 规则 / 工作流 / 输出样式合并到同一组件并卡片化，各带类型图标。
+- **Hooks**
+  - 卡片化 + 常见事件中文说明（如 `PreToolUse` → 工具执行前）；用户作用域不再混入插件 hooks（插件 hooks 在插件卡片里查看）。
+- **设置项扩充**
+  - 表单从 model + 权限列表扩展到模型 / 界面 / 会话 / 通知 / 更新 / 权限六类约 17 个字段：布尔三态（继承 / 开 / 关）、枚举下拉、默认权限模式等；改为全宽布局。安全敏感与管理员项仍走原始 JSON。
 
 ### v0.2.2
 

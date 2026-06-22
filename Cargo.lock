@@ -532,7 +532,7 @@ dependencies = [
 
 [[package]]
 name = "claude-copilot-core"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "chrono",
  "serde",
@@ -544,7 +544,7 @@ dependencies = [
 
 [[package]]
 name = "claude-copilot-desktop"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "chrono",
  "claude-copilot-core",
