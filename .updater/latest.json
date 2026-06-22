@@ -1,15 +1,15 @@
 {
-  "version": "0.2.2",
-  "notes": "v0.2.2",
-  "pub_date": "2026-06-22T04:32:10Z",
+  "version": "0.2.3",
+  "notes": "v0.2.3",
+  "pub_date": "2026-06-22T14:10:48Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSRlQ0N0tJQk8wa1V6NHNqMW1KMUV2MVBDVTN3L25Qd1dKdGpGMElsQmtoODVrUlhGODlUbXc2UHJWeGpCSFBWRmV1OFl4Vko2cm9haEp4b25GSlRZV2FnZmJ5QllJdndBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyMTAyMzU2CWZpbGU6Q2xhdWRlQ29waWxvdC5hcHAudGFyLmd6CjZsb1lqZnYvTjN3NC9ZejNMT3QydkkzdUt0Zm5WZjhLckxYcVJQa1liV0ZNRlhCTENZUjFueFJtdWZ3TDFqRTVrTFJQdFdoajBZcnNOUlViSEJEMEFnPT0K",
-      "url": "https://cnb.cool/weixiao.space/claude-copilot/-/releases/download/v0.2.2/ClaudeCopilot_aarch64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSRlQ0N0tJQk8wa1FRZmNXODdEdU5Id3FQeFBPQXQwUnp2SkRaaUpEeGU2ZENDeThlZGNodmNkd25GdUNkZnJ5a3drOXA1V3RadDBmUUtNYWl5M2hXVlA3SksyN1ZOQWc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyMTM3MTU4CWZpbGU6Q2xhdWRlQ29waWxvdC5hcHAudGFyLmd6CjRrNU5aZkJ1TUV2Vy94c1lIcVkrdkNlL01jMVh2MUtpbHlBbDBNcVEyTnIxc0VscVMrcVdTdk1uYkU3cGhKazVNbWRCVzRnNDlZejNPNzVmQ1RHVkR3PT0K",
+      "url": "https://cnb.cool/weixiao.space/claude-copilot/-/releases/download/v0.2.3/ClaudeCopilot_aarch64.app.tar.gz"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSRlQ0N0tJQk8wa1pXb0ZFVzRJb3dQSkU3QTEwODJLUXNyN05GNlFzVGJqWm11bDBpb2RIWURnZlorRzJja05PYkxHK0JMaFhQZEl3N21GeE9nSlU4anNYYStTV2FVb0FjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyMTAyNjQzCWZpbGU6Q2xhdWRlQ29waWxvdF8wLjIuMl94NjQtc2V0dXAuZXhlClNsS2tIbTAzMk9QSm9zNEsraVNVYzNUQ2lSOXltaTA0Q2t6NUg1dmlacUtVa0c5SFJIVGlVR0NXUkRjTFpXSEhwV2poRU5Sd3ZlYTBQOTNqWWlvK0RnPT0K",
-      "url": "https://cnb.cool/weixiao.space/claude-copilot/-/releases/download/v0.2.2/ClaudeCopilot_0.2.2_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSRlQ0N0tJQk8wa1ZTU3g0NjBnOEQvUjJOTEl1UG1zQ0lHK3l2Ym5mM0tRbitHMGZzZlVPKzRId25oc2t5UEd4eGpUVHR5K1V3M21va0hLZ1VwQnFtOVowNW9HVFR5WkFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyMTM3MzU1CWZpbGU6Q2xhdWRlQ29waWxvdF8wLjIuM194NjQtc2V0dXAuZXhlCnRkNzc1czE5SU5sZnkyRkd4UUVzYU9CSVVrM1plbnRpNmY5RzRlTkM2cVZlQ2RZeEYxbkVlWm9kVXYvK2x2TVQ0b1ZMZU82Uk9tNWJUSDc1ZEdJekJ3PT0K",
+      "url": "https://cnb.cool/weixiao.space/claude-copilot/-/releases/download/v0.2.3/ClaudeCopilot_0.2.3_x64-setup.exe"
     }
   }
 }
