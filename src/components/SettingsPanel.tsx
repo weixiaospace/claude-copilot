@@ -9,6 +9,7 @@ import { toast } from "../lib/toast";
 import { useFsRefresh } from "../lib/useFsRefresh";
 import { PanelHeader } from "./PanelHeader";
 import { Segmented } from "./ui/Segmented";
+import { Select } from "./ui/Select";
 import { Button } from "./ui/button";
 import { Loading } from "./ui/Loading";
 
@@ -17,6 +18,76 @@ type Layer = "user" | "project" | "local";
 
 const inputClass =
   "w-full rounded-md border border-neutral-200 bg-transparent px-2 py-1 text-sm dark:border-neutral-700";
+
+/** A scalar setting rendered as a single form row. */
+type FieldSpec =
+  | { key: string; kind: "text"; placeholder?: string }
+  | { key: string; kind: "number"; placeholder?: string }
+  | { key: string; kind: "bool" }
+  | { key: string; kind: "enum"; options: string[] };
+
+type Section = { title: string; fields: FieldSpec[] };
+
+// Curated set of safe, useful settings.json keys (verified against the current
+// Claude Code schema). Security-sensitive keys (env, apiKeyHelper, AWS/GCP
+// scripts), admin/managed-only keys, and deprecated keys are intentionally left
+// to the raw-JSON editor; hooks/output-style/permission-lists live in their own
+// panels or below.
+const SECTIONS: Section[] = [
+  {
+    title: "settings.sec.model",
+    fields: [
+      { key: "model", kind: "text", placeholder: "opus / sonnet / …" },
+      { key: "effortLevel", kind: "enum", options: ["low", "medium", "high", "xhigh"] },
+      { key: "alwaysThinkingEnabled", kind: "bool" },
+      { key: "language", kind: "text", placeholder: "english / 中文 / 日本語" },
+    ],
+  },
+  {
+    title: "settings.sec.interface",
+    fields: [
+      { key: "editorMode", kind: "enum", options: ["normal", "vim"] },
+      { key: "autoScrollEnabled", kind: "bool" },
+      { key: "spinnerTipsEnabled", kind: "bool" },
+      { key: "prefersReducedMotion", kind: "bool" },
+    ],
+  },
+  {
+    title: "settings.sec.session",
+    fields: [
+      { key: "cleanupPeriodDays", kind: "number", placeholder: "30" },
+      { key: "fileCheckpointingEnabled", kind: "bool" },
+      { key: "autoMemoryEnabled", kind: "bool" },
+      { key: "respectGitignore", kind: "bool" },
+    ],
+  },
+  {
+    title: "settings.sec.notif",
+    fields: [
+      {
+        key: "preferredNotifChannel",
+        kind: "enum",
+        options: [
+          "auto",
+          "terminal_bell",
+          "iterm2",
+          "iterm2_with_bell",
+          "kitty",
+          "ghostty",
+          "notifications_disabled",
+        ],
+      },
+      { key: "agentPushNotifEnabled", kind: "bool" },
+      { key: "inputNeededNotifEnabled", kind: "bool" },
+    ],
+  },
+  {
+    title: "settings.sec.updates",
+    fields: [{ key: "autoUpdatesChannel", kind: "enum", options: ["stable", "latest"] }],
+  },
+];
+
+const PERMISSION_MODES = ["default", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions"];
 
 function toScopeRef(scope: Scope): ScopeRef {
   return scope.kind === "user" ? { kind: "user" } : { kind: "project", id: scope.id };
@@ -27,6 +98,80 @@ function asObject(v: unknown): Doc {
 }
 function asStringArray(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+}
+
+/** One settings row: label on the left, the right control by `kind`. A blank /
+ *  "inherit" value clears the key so it falls back to the inherited default. */
+function SettingRow({
+  spec,
+  value,
+  onChange,
+}: {
+  spec: FieldSpec;
+  value: unknown;
+  onChange: (v: unknown | undefined) => void;
+}) {
+  let control;
+  if (spec.kind === "bool") {
+    const cur = value === true ? "on" : value === false ? "off" : "inherit";
+    control = (
+      <Segmented
+        value={cur}
+        onChange={(v) => onChange(v === "on" ? true : v === "off" ? false : undefined)}
+        options={[
+          { value: "inherit", label: t("settings.inherit") },
+          { value: "on", label: t("settings.on") },
+          { value: "off", label: t("settings.off") },
+        ]}
+      />
+    );
+  } else if (spec.kind === "enum") {
+    const cur = typeof value === "string" ? value : "";
+    control = (
+      <Select
+        value={cur}
+        onChange={(e) => onChange((e.target as HTMLSelectElement).value || undefined)}
+      >
+        <option value="">{t("settings.inherit")}</option>
+        {spec.options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </Select>
+    );
+  } else if (spec.kind === "number") {
+    const cur = typeof value === "number" ? String(value) : "";
+    control = (
+      <input
+        type="number"
+        class={inputClass + " max-w-[8rem]"}
+        value={cur}
+        placeholder={spec.placeholder}
+        onInput={(e) => {
+          const raw = (e.target as HTMLInputElement).value;
+          const n = Number(raw);
+          onChange(raw === "" || Number.isNaN(n) ? undefined : n);
+        }}
+      />
+    );
+  } else {
+    const cur = typeof value === "string" ? value : "";
+    control = (
+      <input
+        class={inputClass}
+        value={cur}
+        placeholder={spec.placeholder}
+        onInput={(e) => onChange((e.target as HTMLInputElement).value || undefined)}
+      />
+    );
+  }
+  return (
+    <div class="flex items-center gap-4 py-2">
+      <span class="w-56 shrink-0 pr-2 text-sm">{t(`settings.field.${spec.key}`)}</span>
+      <div class="min-w-0 flex-1">{control}</div>
+    </div>
+  );
 }
 
 function StringListEditor({
@@ -110,14 +255,28 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
   useFsRefresh(reload);
 
   const permissions = asObject(doc.permissions);
-  const setPerm = (key: string, vals: string[]) =>
-    setDoc({ ...doc, permissions: { ...permissions, [key]: vals } });
 
-  function setModel(v: string) {
-    const next = { ...doc };
-    if (v) next.model = v;
-    else delete next.model;
-    setDoc(next);
+  /** Set/clear a top-level key (undefined → delete, so it inherits). */
+  function setKey(key: string, value: unknown | undefined) {
+    setDoc((d) => {
+      const next: Doc = { ...d };
+      if (value === undefined) delete next[key];
+      else next[key] = value;
+      return next;
+    });
+  }
+
+  /** Set/clear a `permissions.*` key, pruning the object when it goes empty. */
+  function setPermKey(key: string, value: unknown | undefined) {
+    setDoc((d) => {
+      const perms: Doc = { ...asObject(d.permissions) };
+      if (value === undefined) delete perms[key];
+      else perms[key] = value;
+      const next: Doc = { ...d };
+      if (Object.keys(perms).length) next.permissions = perms;
+      else delete next.permissions;
+      return next;
+    });
   }
 
   function toggleRaw() {
@@ -180,7 +339,9 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
             <Button variant="ghost" onClick={toggleRaw}>
               {raw ? t("settings.form") : t("settings.raw")}
             </Button>
-            <Button onClick={() => void save()} disabled={!!jsonError || saving}>{t("detail.save")}</Button>
+            <Button onClick={() => void save()} disabled={!!jsonError || saving}>
+              {t("detail.save")}
+            </Button>
           </>
         }
       />
@@ -198,36 +359,56 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
             onInput={(e) => setRawText((e.target as HTMLTextAreaElement).value)}
           />
         ) : (
-          <div class="flex max-w-2xl flex-col gap-4">
-            <label class="flex flex-col gap-1">
-              <span class="text-xs font-medium text-neutral-500">{t("settings.model")}</span>
-              <input
-                class={inputClass}
-                value={typeof doc.model === "string" ? doc.model : ""}
-                placeholder="(inherit)"
-                onInput={(e) => setModel((e.target as HTMLInputElement).value)}
+          <div class="flex flex-col gap-6">
+            {SECTIONS.map((sec) => (
+              <section key={sec.title} class="flex flex-col">
+                <h3 class="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                  {t(sec.title)}
+                </h3>
+                <div class="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800/70">
+                  {sec.fields.map((f) => (
+                    <SettingRow
+                      key={f.key}
+                      spec={f}
+                      value={doc[f.key]}
+                      onChange={(v) => setKey(f.key, v)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+
+            <section class="flex flex-col gap-3">
+              <h3 class="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                {t("settings.sec.permissions")}
+              </h3>
+              <SettingRow
+                spec={{ key: "defaultMode", kind: "enum", options: PERMISSION_MODES }}
+                value={permissions.defaultMode}
+                onChange={(v) => setPermKey("defaultMode", v)}
               />
-            </label>
-            <StringListEditor
-              label={t("settings.permissionsAllow")}
-              values={asStringArray(permissions.allow)}
-              onChange={(v) => setPerm("allow", v)}
-            />
-            <StringListEditor
-              label={t("settings.permissionsAsk")}
-              values={asStringArray(permissions.ask)}
-              onChange={(v) => setPerm("ask", v)}
-            />
-            <StringListEditor
-              label={t("settings.permissionsDeny")}
-              values={asStringArray(permissions.deny)}
-              onChange={(v) => setPerm("deny", v)}
-            />
-            <StringListEditor
-              label={t("settings.additionalDirs")}
-              values={asStringArray(permissions.additionalDirectories)}
-              onChange={(v) => setPerm("additionalDirectories", v)}
-            />
+              <StringListEditor
+                label={t("settings.permissionsAllow")}
+                values={asStringArray(permissions.allow)}
+                onChange={(v) => setPermKey("allow", v.length ? v : undefined)}
+              />
+              <StringListEditor
+                label={t("settings.permissionsAsk")}
+                values={asStringArray(permissions.ask)}
+                onChange={(v) => setPermKey("ask", v.length ? v : undefined)}
+              />
+              <StringListEditor
+                label={t("settings.permissionsDeny")}
+                values={asStringArray(permissions.deny)}
+                onChange={(v) => setPermKey("deny", v.length ? v : undefined)}
+              />
+              <StringListEditor
+                label={t("settings.additionalDirs")}
+                values={asStringArray(permissions.additionalDirectories)}
+                onChange={(v) => setPermKey("additionalDirectories", v.length ? v : undefined)}
+              />
+            </section>
+
             <p class="text-xs text-neutral-400">{t("settings.rawHint")}</p>
           </div>
         )}
