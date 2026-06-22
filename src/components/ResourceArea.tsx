@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { Bot, Palette, Scroll, Workflow, type LucideIcon } from "lucide-preact";
 import type { Scope } from "../types/Scope";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { FileResource } from "../types/FileResource";
@@ -9,7 +10,6 @@ import { ResourcePanel } from "./ResourcePanel";
 import { HooksPanel } from "./HooksPanel";
 import { McpPanel } from "./McpPanel";
 import { MemoryPanel } from "./MemoryPanel";
-import { OutputStylesPanel } from "./OutputStylesPanel";
 import { PluginsPanel } from "./PluginsPanel";
 import { SkillsPanel } from "./SkillsPanel";
 import { UsagePanel } from "./UsagePanel";
@@ -33,7 +33,7 @@ type TabKey =
   | "usage"
   | "settings"
   | "sessions";
-type ResourceTabKey = "skills" | "agents" | "workflows" | "rules";
+type ResourceTabKey = "skills" | "agents" | "workflows" | "rules" | "output_styles";
 
 type Tab = { key: TabKey; label: string };
 
@@ -78,6 +78,8 @@ interface PanelProps {
   create?: (name: string) => Promise<unknown>;
   remove: (resource: FileResource) => Promise<boolean>;
   namePlaceholder: string;
+  icon?: LucideIcon;
+  active?: { load: () => Promise<string | null>; set: (name: string) => Promise<void> };
 }
 
 async function confirmDelete(): Promise<boolean> {
@@ -113,6 +115,7 @@ function panelProps(tab: ResourceTabKey, scope: ScopeRef): PanelProps {
         create: (name) => invoke("create_agent", { scope, name }),
         remove: deleteFile,
         namePlaceholder,
+        icon: Bot,
       };
     case "rules":
       return {
@@ -120,6 +123,7 @@ function panelProps(tab: ResourceTabKey, scope: ScopeRef): PanelProps {
         create: (name) => invoke("create_rule", { scope, name }),
         remove: deleteFile,
         namePlaceholder,
+        icon: Scroll,
       };
     case "workflows":
       return {
@@ -127,6 +131,21 @@ function panelProps(tab: ResourceTabKey, scope: ScopeRef): PanelProps {
         create: (name) => invoke("create_workflow", { scope, name }),
         remove: deleteFile,
         namePlaceholder,
+        icon: Workflow,
+      };
+    case "output_styles":
+      return {
+        load: () => invoke("list_output_styles", { scope }),
+        create: (name) => invoke("create_output_style", { scope, name }),
+        remove: deleteFile,
+        namePlaceholder,
+        icon: Palette,
+        // Output styles add a per-scope active selection on top of the generic
+        // file-resource behaviour (written to settings.json / settings.local.json).
+        active: {
+          load: () => invoke("get_active_output_style", { scope }),
+          set: (name) => invoke("set_active_output_style", { scope, name }),
+        },
       };
   }
 }
@@ -179,8 +198,6 @@ export function ResourceArea({ scope }: { scope: Scope }) {
           <MemoryPanel key={`${scope.id}:memory`} projectId={scope.id} />
         ) : tab === "sessions" && scope.kind === "project" ? (
           <SessionsPanel key={`${scope.id}:sessions`} projectId={scope.id} />
-        ) : tab === "output_styles" ? (
-          <OutputStylesPanel key={`${scope.id}:output_styles`} scope={ref} />
         ) : tab === "plugins" ? (
           <PluginsPanel key="plugins" />
         ) : tab === "skills" ? (
