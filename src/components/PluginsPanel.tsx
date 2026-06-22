@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { notifyError } from "../lib/notify";
+import { toast } from "../lib/toast";
 import {
   ChevronDown,
   ChevronRight,
@@ -25,6 +25,8 @@ import { ResourceDetail } from "./ResourceDetail";
 import { PanelHeader } from "./PanelHeader";
 import { Segmented } from "./ui/Segmented";
 import { CreateNameDialog } from "./CreateNameDialog";
+import { LastUpdated } from "./LastUpdated";
+import { Loading } from "./ui/Loading";
 
 type Tab = "marketplaces" | "available" | "installed";
 
@@ -100,6 +102,15 @@ export function PluginsPanel() {
   const [marketFilter, setMarketFilter] = useState("");
   const [addingMarket, setAddingMarket] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Name of the marketplace currently being updated — drives the per-row
+  // spinner so only that card animates, not every update button.
+  const [updatingMarket, setUpdatingMarket] = useState<string | null>(null);
+  // True only during the initial data load; never flipped back to true on
+  // subsequent useFsRefresh reloads.
+  const [loading, setLoading] = useState(true);
+  // Plugin ids whose bundled-resource enumeration failed (shown as an error
+  // indicator rather than silently implying "0 resources").
+  const [failedBundled, setFailedBundled] = useState<Set<string>>(new Set());
 
   async function refresh() {
     try {
@@ -113,20 +124,29 @@ export function PluginsPanel() {
       setCatalog(c);
       // Eager-load bundled resources for installed plugins (usually few) so the
       // cards can show resource counts without expanding each one.
+      const failed = new Set<string>();
       const entries = await Promise.all(
         p.map(
           async (pl) =>
             [
               pl.id,
               await invoke("list_bundled_resources", { installPath: pl.install_path }).catch(
-                () => [] as BundledResource[],
+                () => {
+                  failed.add(pl.id);
+                  return [] as BundledResource[];
+                },
               ),
             ] as const,
         ),
       );
       setBundled(Object.fromEntries(entries));
+      setFailedBundled(failed);
     } catch (e) {
-      await notifyError(e);
+      toast.error(String(e));
+    } finally {
+      // Only ever cleared — never set back to true — so subsequent
+      // useFsRefresh reloads don't flash the loading state again.
+      setLoading(false);
     }
   }
   useEffect(() => {
@@ -134,14 +154,31 @@ export function PluginsPanel() {
   }, []);
   useFsRefresh(refresh);
 
-  // Wrap a CLI mutation: surface errors, refresh on success.
-  async function run(fn: () => Promise<unknown>) {
+  // Wrap a CLI mutation: refresh on success, surface the result as a toast.
+  // `pending` shows a live "loading → done" toast for slow, network-bound ops
+  // (update/install); otherwise only a terminal success/error toast is shown.
+  async function run(
+    fn: () => Promise<unknown>,
+    opts: { success?: string; pending?: string } = {},
+  ) {
     setBusy(true);
     try {
-      await fn();
-      await refresh();
+      const work = (async () => {
+        await fn();
+        await refresh();
+      })();
+      if (opts.pending) {
+        await toast.promise(work, {
+          loading: opts.pending,
+          success: opts.success ?? t("common.done"),
+          error: (e) => String(e),
+        });
+      } else {
+        await work;
+        if (opts.success) toast.success(opts.success);
+      }
     } catch (e) {
-      await notifyError(e);
+      if (!opts.pending) toast.error(String(e));
     } finally {
       setBusy(false);
     }
@@ -214,7 +251,7 @@ export function PluginsPanel() {
             />
           </div>
         }
-        onRefresh={() => void refresh()}
+        onRefresh={() => refresh()}
         createLabel={tab === "marketplaces" ? t("plugins.addMarketplace") : undefined}
         onCreate={tab === "marketplaces" ? () => setAddingMarket(true) : undefined}
       />
@@ -223,11 +260,14 @@ export function PluginsPanel() {
         {/* ── Marketplaces ── */}
         {tab === "marketplaces" && (
           <div class="flex flex-col gap-2">
-            {filteredMarkets.length === 0 && (
+            {loading && filteredMarkets.length === 0 ? (
+              <Loading />
+            ) : filteredMarkets.length === 0 && (
               <div class="py-8 text-sm text-neutral-400">{t("plugins.noMarketplaces")}</div>
             )}
             {filteredMarkets.map((m) => {
               const { kind, detail } = splitSource(m.source);
+              const updatedMs = m.last_updated ? Date.parse(m.last_updated) : undefined;
               return (
                 <div key={m.name} class={card}>
                   <div class="flex items-center gap-2">
@@ -239,14 +279,27 @@ export function PluginsPanel() {
                     <button
                       class="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-900 disabled:opacity-50 dark:hover:text-white"
                       disabled={busy}
-                      onClick={() => void run(() => invoke("update_marketplace", { name: m.name }))}
+                      onClick={() => {
+                        setUpdatingMarket(m.name);
+                        // No manual timestamping: the CLI bumps the marketplace's
+                        // `lastUpdated`, and the refresh() inside run() re-reads it.
+                        void run(() => invoke("update_marketplace", { name: m.name }), {
+                          pending: t("plugins.updating"),
+                          success: t("plugins.updated"),
+                        }).finally(() => setUpdatingMarket(null));
+                      }}
                     >
-                      <RefreshCw size={13} /> {t("plugins.update")}
+                      <RefreshCw size={13} class={updatingMarket === m.name ? "animate-spin" : ""} />{" "}
+                      {t("plugins.update")}
                     </button>
                     <button
                       class="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-red-500 disabled:opacity-50"
                       disabled={busy}
-                      onClick={() => void run(() => invoke("remove_marketplace", { name: m.name }))}
+                      onClick={() =>
+                        void run(() => invoke("remove_marketplace", { name: m.name }), {
+                          success: t("plugins.marketplaceRemoved"),
+                        })
+                      }
                     >
                       <Trash2 size={13} /> {t("detail.delete")}
                     </button>
@@ -264,6 +317,7 @@ export function PluginsPanel() {
                       {m.install_location}
                     </div>
                   )}
+                  <LastUpdated at={updatedMs} class="mt-1 pl-6" />
                 </div>
               );
             })}
@@ -293,7 +347,9 @@ export function PluginsPanel() {
               </div>
             )}
             <div class="grid grid-cols-1 gap-2 lg:grid-cols-2">
-              {available.length === 0 && (
+              {loading && available.length === 0 ? (
+                <Loading />
+              ) : available.length === 0 && (
                 <div class="py-8 text-sm text-neutral-400">{t("plugins.noAvailable")}</div>
               )}
               {available.map((a) => (
@@ -306,7 +362,12 @@ export function PluginsPanel() {
                   <button
                     class="inline-flex shrink-0 items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
                     disabled={busy}
-                    onClick={() => void run(() => invoke("install_plugin", { name: a.id }))}
+                    onClick={() =>
+                      void run(() => invoke("install_plugin", { name: a.id }), {
+                        pending: t("plugins.installing"),
+                        success: t("plugins.installedDone"),
+                      })
+                    }
                   >
                     <Download size={13} /> {t("plugins.install")}
                   </button>
@@ -327,7 +388,9 @@ export function PluginsPanel() {
         {/* ── Installed ── */}
         {tab === "installed" && (
           <div class="flex flex-col gap-2">
-            {installed.length === 0 && (
+            {loading && installed.length === 0 ? (
+              <Loading />
+            ) : installed.length === 0 && (
               <div class="py-8 text-sm text-neutral-400">{t("plugins.empty")}</div>
             )}
             {installed.map((p) => {
@@ -376,7 +439,9 @@ export function PluginsPanel() {
                       onClick={() =>
                         void (async () => {
                           if (await confirm(t("plugins.confirmUninstall"), { kind: "warning" })) {
-                            await run(() => invoke("uninstall_plugin", { name: p.id }));
+                            await run(() => invoke("uninstall_plugin", { name: p.id }), {
+                              success: t("plugins.uninstalledDone"),
+                            });
                           }
                         })()
                       }
@@ -387,12 +452,16 @@ export function PluginsPanel() {
 
                   <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 pl-6 text-xs text-neutral-400">
                     <span>{p.marketplace}</span>
-                    {counts.map(([k, n]) => (
-                      <span key={k} class="inline-flex items-center gap-1">
-                        <span class="h-1 w-1 rounded-full bg-accent" />
-                        {n} {t(KIND_LABEL[k])}
-                      </span>
-                    ))}
+                    {failedBundled.has(p.id) ? (
+                      <span class="text-xs text-red-500">{t("plugins.loadFailed")}</span>
+                    ) : (
+                      counts.map(([k, n]) => (
+                        <span key={k} class="inline-flex items-center gap-1">
+                          <span class="h-1 w-1 rounded-full bg-accent" />
+                          {n} {t(KIND_LABEL[k])}
+                        </span>
+                      ))
+                    )}
                   </div>
                   {desc && <p class="mt-1 line-clamp-2 pl-6 text-xs text-neutral-500">{desc}</p>}
 
@@ -434,8 +503,10 @@ export function PluginsPanel() {
         placeholder={t("plugins.addMarketplacePlaceholder")}
         onClose={() => setAddingMarket(false)}
         onCreate={async (source) => {
-          await invoke("add_marketplace", { source });
-          await refresh();
+          await run(() => invoke("add_marketplace", { source }), {
+            pending: t("plugins.addingMarketplace"),
+            success: t("plugins.marketplaceAdded"),
+          });
         }}
       />
     </div>

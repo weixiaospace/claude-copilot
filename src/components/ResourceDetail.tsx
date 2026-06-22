@@ -4,6 +4,7 @@ import type { FileResource } from "../types/FileResource";
 import { invoke } from "../lib/ipc";
 import { renderMarkdown } from "../lib/markdown";
 import { t } from "../lib/i18n";
+import { toast } from "../lib/toast";
 import { Button } from "./ui/button";
 
 /**
@@ -49,16 +50,24 @@ export function ResourceDetail({
 
   async function save() {
     if (!resource) return;
-    await invoke("write_file", { path: resource.path, content: draft });
-    setContent(draft);
-    setEditing(false);
-    onChanged?.();
+    try {
+      await invoke("write_file", { path: resource.path, content: draft });
+      setContent(draft);
+      setEditing(false);
+      onChanged?.();
+      toast.success(t("common.saved"));
+    } catch (e) {
+      toast.error(String(e));
+    }
   }
 
   return (
     <dialog
       ref={ref}
       onClose={onClose}
+      onClick={(e) => {
+        if (e.target === ref.current) onClose(); // backdrop click
+      }}
       class="m-auto w-[min(90vw,720px)] rounded-lg bg-neutral-50 p-0 text-neutral-900 backdrop:bg-black/40 dark:bg-neutral-900 dark:text-neutral-100"
     >
       {resource && (
@@ -68,7 +77,7 @@ export function ResourceDetail({
             <button
               class="rounded-md p-1 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-white"
               aria-label="Close"
-              onClick={() => ref.current?.close()}
+              onClick={onClose}
             >
               <X size={18} />
             </button>
@@ -91,7 +100,13 @@ export function ResourceDetail({
           </div>
 
           <footer class="flex items-center gap-2 border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
-            <Button onClick={() => void invoke("open_in_editor", { path: resource.path })}>
+            <Button
+              onClick={() =>
+                void invoke("open_in_editor", { path: resource.path }).catch((e) =>
+                  toast.error(String(e)),
+                )
+              }
+            >
               {t("detail.openInEditor")}
             </Button>
             {!readOnly &&

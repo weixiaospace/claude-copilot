@@ -3,4 +3,10 @@
 /**
  * A configured marketplace (from `known_marketplaces.json`).
  */
-export type Marketplace = { name: string, source: string, install_location: string, };
+export type Marketplace = { name: string, source: string, install_location: string, 
+/**
+ * ISO-8601 timestamp the CLI records on `marketplace update`; `None` if the
+ * entry predates it. The authoritative "last updated" time — reflects any
+ * update, including ones made directly via the `claude` CLI.
+ */
+last_updated: string | null, };

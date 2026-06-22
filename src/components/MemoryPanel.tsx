@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { notifyError } from "../lib/notify";
+import { toast } from "../lib/toast";
 import { useFsRefresh } from "../lib/useFsRefresh";
 import type { FileResource } from "../types/FileResource";
 import type { MemoryInfo } from "../types/MemoryInfo";
@@ -10,6 +10,7 @@ import { ResourceList } from "./ResourceList";
 import { ResourceDetail } from "./ResourceDetail";
 import { PanelHeader } from "./PanelHeader";
 import { CreateNameDialog } from "./CreateNameDialog";
+import { Loading } from "./ui/Loading";
 
 /** Project auto-memory: list/create/delete markdown files in the resolved dir. */
 export function MemoryPanel({ projectId }: { projectId: string }) {
@@ -17,6 +18,7 @@ export function MemoryPanel({ projectId }: { projectId: string }) {
   const [info, setInfo] = useState<MemoryInfo | null>(null);
   const [selected, setSelected] = useState<FileResource | null>(null);
   const [creating, setCreating] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   async function refresh() {
     try {
@@ -27,12 +29,15 @@ export function MemoryPanel({ projectId }: { projectId: string }) {
       setItems(list);
       setInfo(mi);
     } catch (e) {
-      await notifyError(e);
+      toast.error(String(e));
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
     setSelected(null);
+    setLoading(true);
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
@@ -41,14 +46,19 @@ export function MemoryPanel({ projectId }: { projectId: string }) {
   async function remove(resource: FileResource) {
     const ok = await confirm(t("memory.confirmDelete"), { kind: "warning" });
     if (!ok) return;
-    await invoke("delete_memory", { projectId, path: resource.path });
-    setSelected(null);
-    await refresh();
+    try {
+      await invoke("delete_memory", { projectId, path: resource.path });
+      toast.success(t("memory.deleted"));
+      setSelected(null);
+      await refresh();
+    } catch (e) {
+      toast.error(String(e));
+    }
   }
 
   return (
     <div class="flex h-full flex-col">
-      <PanelHeader onRefresh={() => void refresh()} onCreate={() => setCreating(true)} />
+      <PanelHeader onRefresh={() => refresh()} onCreate={() => setCreating(true)} />
 
       {info && (
         <div class="px-6 pb-2 text-xs text-neutral-400">
@@ -65,7 +75,11 @@ export function MemoryPanel({ projectId }: { projectId: string }) {
       )}
 
       <div class="flex-1 overflow-auto px-3">
-        <ResourceList items={items} emptyLabel={t("memory.empty")} onSelect={setSelected} />
+        {loading && items.length === 0 ? (
+          <Loading />
+        ) : (
+          <ResourceList items={items} emptyLabel={t("memory.empty")} onSelect={setSelected} />
+        )}
       </div>
 
       <ResourceDetail

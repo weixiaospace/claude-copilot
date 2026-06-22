@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { notifyError } from "../lib/notify";
+import { toast } from "../lib/toast";
 import { useFsRefresh } from "../lib/useFsRefresh";
 import { X } from "lucide-preact";
 import type { ScopeRef } from "../types/ScopeRef";
@@ -11,6 +11,7 @@ import { PanelHeader } from "./PanelHeader";
 import { Modal } from "./ui/Modal";
 import { Select } from "./ui/Select";
 import { Button } from "./ui/button";
+import { Loading } from "./ui/Loading";
 
 type Group = { source: string; servers: McpServer[] };
 
@@ -34,10 +35,12 @@ function groupBySource(servers: McpServer[]): Group[] {
  *  add/remove go through the `claude mcp` CLI. */
 export function McpPanel({ scope }: { scope: ScopeRef }) {
   const [servers, setServers] = useState<McpServer[]>([]);
+  const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
   const [transport, setTransport] = useState("stdio");
+  const [saving, setSaving] = useState(false);
 
   const key = JSON.stringify(scope);
 
@@ -45,26 +48,33 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
     try {
       setServers(await invoke("list_mcp", { scope }));
     } catch (e) {
-      await notifyError(e);
+      toast.error(String(e));
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
+    setLoading(true);
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   useFsRefresh(refresh);
 
   async function add() {
-    if (!name.trim() || !target.trim()) return;
+    if (!name.trim() || !target.trim() || saving) return;
+    setSaving(true);
     try {
       await invoke("add_mcp", { scope, name: name.trim(), transport, target: target.trim() });
       setName("");
       setTarget("");
       setCreating(false);
+      toast.success(t("mcp.added"));
       await refresh();
     } catch (e) {
-      await notifyError(e);
+      toast.error(String(e));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -72,9 +82,10 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
     if (!(await confirm(t("mcp.confirmRemove"), { kind: "warning" }))) return;
     try {
       await invoke("remove_mcp", { scope, name: s.name, source: s.source });
+      toast.success(t("mcp.removed"));
       await refresh();
     } catch (e) {
-      await notifyError(e);
+      toast.error(String(e));
     }
   }
 
@@ -82,10 +93,11 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
 
   return (
     <div class="flex h-full flex-col">
-      <PanelHeader onRefresh={() => void refresh()} onCreate={() => setCreating(true)} />
+      <PanelHeader onRefresh={() => refresh()} onCreate={() => setCreating(true)} />
 
       <div class="flex-1 overflow-auto px-6 pb-3">
-        {servers.length === 0 && (
+        {loading && servers.length === 0 && <Loading />}
+        {!loading && servers.length === 0 && (
           <div class="py-6 text-sm text-neutral-400">{t("mcp.empty")}</div>
         )}
         {groups.map((g) => (
@@ -132,7 +144,7 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
             <Button variant="ghost" onClick={() => setCreating(false)}>
               {t("providers.cancel")}
             </Button>
-            <Button onClick={() => void add()}>{t("resource.create")}</Button>
+            <Button onClick={() => void add()} disabled={!name.trim() || !target.trim() || saving}>{t("resource.create")}</Button>
           </>
         }
       >
@@ -142,6 +154,7 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
             <input
               autofocus
               class={inputClass}
+              placeholder={t("mcp.namePlaceholder")}
               value={name}
               onInput={(e) => setName((e.target as HTMLInputElement).value)}
             />

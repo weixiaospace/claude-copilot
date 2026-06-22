@@ -4,6 +4,7 @@ import type { Scope } from "../types/Scope";
 import type { ScopeRef } from "../types/ScopeRef";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
+import { toast } from "../lib/toast";
 import { activeByScope, appView, profiles, providersTick, reloadActiveProfiles } from "../lib/signals";
 
 function toScopeRef(scope: Scope): ScopeRef {
@@ -48,14 +49,17 @@ export function ProviderActivation({ scope }: { scope: Scope }) {
         ? t("activation.unmanaged")
         : t("activation.subscription");
 
-  async function choose(action: () => Promise<unknown>) {
+  // `success` differs per action (activate vs deactivate); a failure used to be
+  // swallowed by console.error, so the menu looked switched when it hadn't.
+  async function choose(action: () => Promise<unknown>, success: string) {
     setOpen(false);
     try {
       await action();
       await reloadActiveProfiles();
       providersTick.value++; // nudge SettingsPanel (env block changed) to re-read
+      toast.success(success);
     } catch (e) {
-      console.error("activation failed", e);
+      toast.error(String(e));
     }
   }
 
@@ -78,7 +82,12 @@ export function ProviderActivation({ scope }: { scope: Scope }) {
             <MenuItem
               label={t("activation.subscription")}
               active={!active || active.state === "subscription"}
-              onClick={() => void choose(() => invoke("deactivate_provider", { scope: ref }))}
+              onClick={() =>
+                void choose(
+                  () => invoke("deactivate_provider", { scope: ref }),
+                  t("providers.deactivated"),
+                )
+              }
             />
             {active?.state === "unmanaged" && (
               <MenuItem label={t("activation.unmanaged")} active onClick={() => setOpen(false)} />
@@ -91,7 +100,12 @@ export function ProviderActivation({ scope }: { scope: Scope }) {
                 key={p.id}
                 label={p.name}
                 active={active?.state === "profile" && active.id === p.id}
-                onClick={() => void choose(() => invoke("activate_profile", { id: p.id, scope: ref }))}
+                onClick={() =>
+                  void choose(
+                    () => invoke("activate_profile", { id: p.id, scope: ref }),
+                    t("providers.activated"),
+                  )
+                }
               />
             ))}
             <div class="my-1 border-t border-neutral-200 dark:border-neutral-800" />

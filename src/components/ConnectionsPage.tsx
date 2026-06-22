@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
-import { confirm, message } from "@tauri-apps/plugin-dialog";
-import { Check, LogIn, RefreshCw, Zap } from "lucide-preact";
+import { confirm } from "@tauri-apps/plugin-dialog";
+import { Check, Eye, EyeOff, LogIn, RefreshCw, Zap } from "lucide-preact";
 import type { Profile } from "../types/Profile";
 import type { ProviderKind } from "../types/ProviderKind";
 import type { AuthMode } from "../types/AuthMode";
@@ -9,10 +9,12 @@ import type { ClaudeSubscriptionQuota } from "../types/ClaudeSubscriptionQuota";
 import type { RateLimitTier } from "../types/RateLimitTier";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
+import { toast } from "../lib/toast";
 import { activeByScope, profiles, providersTick, reloadActiveProfiles } from "../lib/signals";
 import { PanelHeader } from "./PanelHeader";
 import { Modal } from "./ui/Modal";
 import { Select } from "./ui/Select";
+import { Loading } from "./ui/Loading";
 import { Button } from "./ui/button";
 
 const KINDS: ProviderKind[] = ["anthropic", "bedrock", "vertex", "foundry"];
@@ -44,10 +46,6 @@ function presentError(e: unknown): string {
     return t("auth.errors.keychainReadFailed");
   }
   return String(e);
-}
-
-async function showError(e: unknown) {
-  await message(presentError(e), { title: t("common.error"), kind: "error" });
 }
 
 function formatResetTime(ts: number): string {
@@ -132,7 +130,9 @@ function ProfileFields({
   setForm: (f: FormState) => void;
 }) {
   const set = (patch: Partial<FormState>) => setForm({ ...form, ...patch });
-  const showSecret = needsSecret(form.kind, form.kind === "anthropic" ? form.authMode : null);
+  const hasSecret = needsSecret(form.kind, form.kind === "anthropic" ? form.authMode : null);
+  // Toggle the secret input between masked and plaintext via the eye button.
+  const [reveal, setReveal] = useState(false);
 
   return (
     <div class="flex flex-col gap-3">
@@ -141,6 +141,7 @@ function ProfileFields({
         <input
           class={inputClass}
           value={form.name}
+          placeholder={t("providers.name")}
           onInput={(e) => set({ name: (e.target as HTMLInputElement).value })}
         />
       </label>
@@ -180,16 +181,26 @@ function ProfileFields({
           onInput={(e) => set({ baseUrl: (e.target as HTMLInputElement).value })}
         />
       </label>
-      {showSecret && (
+      {hasSecret && (
         <label class="flex flex-col gap-1 text-xs text-neutral-500">
           {t("providers.secret")}
-          <input
-            type="password"
-            class={inputClass}
-            value={form.secret}
-            placeholder={form.id ? t("providers.secretKeep") : ""}
-            onInput={(e) => set({ secret: (e.target as HTMLInputElement).value })}
-          />
+          <div class="relative">
+            <input
+              type={reveal ? "text" : "password"}
+              class={inputClass + " pr-9"}
+              value={form.secret}
+              placeholder={form.id ? t("providers.secretKeep") : ""}
+              onInput={(e) => set({ secret: (e.target as HTMLInputElement).value })}
+            />
+            <button
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+              aria-label={reveal ? t("providers.hideSecret") : t("providers.showSecret")}
+              onClick={() => setReveal((v) => !v)}
+            >
+              {reveal ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
         </label>
       )}
     </div>
@@ -203,6 +214,9 @@ function ProfileFields({
  */
 export function ConnectionsPage() {
   const [form, setForm] = useState<FormState | null>(null);
+  const [saving, setSaving] = useState(false);
+  // True until the first profile load settles; gates the <Loading/> placeholder.
+  const [loading, setLoading] = useState(true);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [quota, setQuota] = useState<ClaudeSubscriptionQuota | null>(null);
@@ -228,7 +242,7 @@ export function ConnectionsPage() {
       setQuota(q);
     } catch (e) {
       setQuota(null);
-      await showError(t("auth.quotaError"));
+      toast.error(t("auth.quotaError"));
       console.error("get_claude_subscription_quota failed", e);
     } finally {
       setQuotaLoading(false);
@@ -239,7 +253,7 @@ export function ConnectionsPage() {
     try {
       await invoke("claude_auth_login");
     } catch (e) {
-      await showError(e);
+      toast.error(presentError(e));
     }
   }
 
@@ -252,7 +266,9 @@ export function ConnectionsPage() {
       profiles.value = ps;
       await reloadActiveProfiles();
     } catch (e) {
-      await showError(e);
+      toast.error(presentError(e));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -273,13 +289,17 @@ export function ConnectionsPage() {
       baseUrl: form.baseUrl.trim() || null,
     };
     const secret = form.secret ? form.secret : null;
+    setSaving(true);
     try {
       if (form.id) await invoke("update_profile", { id: form.id, input, secret });
       else await invoke("create_profile", { input, secret });
       setForm(null);
       await refresh();
+      toast.success(t("providers.saved"));
     } catch (e) {
-      await showError(e);
+      toast.error(presentError(e));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -288,8 +308,9 @@ export function ConnectionsPage() {
     try {
       await invoke("delete_profile", { id: p.id });
       await refresh();
+      toast.success(t("providers.deleted"));
     } catch (e) {
-      await showError(e);
+      toast.error(presentError(e));
     }
   }
 
@@ -298,8 +319,9 @@ export function ConnectionsPage() {
       await invoke("activate_profile", { id: p.id, scope: { kind: "user" } });
       await reloadActiveProfiles();
       providersTick.value++; // nudge SettingsPanel (env block changed) to re-read
+      toast.success(t("providers.activated"));
     } catch (e) {
-      await showError(e);
+      toast.error(presentError(e));
     }
   }
 
@@ -308,8 +330,9 @@ export function ConnectionsPage() {
       await invoke("deactivate_provider", { scope: { kind: "user" } });
       await reloadActiveProfiles();
       providersTick.value++;
+      toast.success(t("auth.defaultSet"));
     } catch (e) {
-      await showError(e);
+      toast.error(presentError(e));
     }
   }
 
@@ -335,7 +358,7 @@ export function ConnectionsPage() {
             {p.label}
           </Button>
         ))}
-        onRefresh={() => void refresh()}
+        onRefresh={() => refresh()}
         createLabel={t("providers.new")}
         onCreate={() => setForm({ ...EMPTY })}
       />
@@ -438,8 +461,12 @@ export function ConnectionsPage() {
       </div>
 
       <div class="min-h-0 flex-1 overflow-auto px-6 pb-6">
-        {profiles.value.length === 0 && (
-          <div class="py-8 text-sm text-neutral-400">{t("providers.empty")}</div>
+        {loading && profiles.value.length === 0 ? (
+          <Loading />
+        ) : (
+          profiles.value.length === 0 && (
+            <div class="py-8 text-sm text-neutral-400">{t("providers.empty")}</div>
+          )
         )}
         <ul class="flex flex-col gap-1">
           {profiles.value.map((p) => {
@@ -514,7 +541,12 @@ export function ConnectionsPage() {
             <Button variant="ghost" onClick={() => setForm(null)}>
               {t("providers.cancel")}
             </Button>
-            <Button onClick={() => void save()}>{t("detail.save")}</Button>
+            <Button
+              onClick={() => void save()}
+              disabled={!form?.name.trim() || saving}
+            >
+              {t("detail.save")}
+            </Button>
           </>
         }
       >

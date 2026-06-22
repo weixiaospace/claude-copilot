@@ -19,6 +19,7 @@ import { ProviderActivation } from "./components/ProviderActivation";
 import { ResourceArea } from "./components/ResourceArea";
 import { ConnectionsPage } from "./components/ConnectionsPage";
 import { WelcomeDialog } from "./components/WelcomeDialog";
+import { Toaster } from "./components/Toaster";
 
 export function App() {
   const [showWelcome, setShowWelcome] = useState(false);
@@ -102,6 +103,8 @@ export function App() {
           void invoke("mark_welcome_seen").catch(() => {});
         }}
       />
+
+      <Toaster />
     </div>
   );
 }

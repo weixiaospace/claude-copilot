@@ -27,6 +27,10 @@ pub struct Marketplace {
     pub name: String,
     pub source: String,
     pub install_location: String,
+    /// ISO-8601 timestamp the CLI records on `marketplace update`; `None` if the
+    /// entry predates it. The authoritative "last updated" time — reflects any
+    /// update, including ones made directly via the `claude` CLI.
+    pub last_updated: Option<String>,
 }
 
 /// Kind of a plugin-bundled resource.
@@ -139,6 +143,10 @@ pub fn parse_marketplaces(json: &Value) -> Vec<Marketplace> {
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_string(),
+            last_updated: m
+                .get("lastUpdated")
+                .and_then(Value::as_str)
+                .map(str::to_string),
         });
     }
     out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
@@ -261,13 +269,23 @@ mod tests {
         let json = json!({
             "official": {
                 "source": { "source": "github", "repo": "anthropics/claude-plugins-official" },
-                "installLocation": "/m/official"
+                "installLocation": "/m/official",
+                "lastUpdated": "2026-06-22T06:39:13.988Z"
+            },
+            "legacy": {
+                "source": { "source": "github", "repo": "owner/legacy" },
+                "installLocation": "/m/legacy"
             }
         });
         let got = parse_marketplaces(&json);
-        assert_eq!(got.len(), 1);
-        assert_eq!(got[0].source, "github:anthropics/claude-plugins-official");
-        assert_eq!(got[0].install_location, "/m/official");
+        assert_eq!(got.len(), 2);
+        let official = got.iter().find(|m| m.name == "official").unwrap();
+        assert_eq!(official.source, "github:anthropics/claude-plugins-official");
+        assert_eq!(official.install_location, "/m/official");
+        assert_eq!(official.last_updated.as_deref(), Some("2026-06-22T06:39:13.988Z"));
+        // An entry without `lastUpdated` parses with None rather than failing.
+        let legacy = got.iter().find(|m| m.name == "legacy").unwrap();
+        assert_eq!(legacy.last_updated, None);
     }
 
     #[test]

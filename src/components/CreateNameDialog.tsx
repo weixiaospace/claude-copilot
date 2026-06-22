@@ -2,7 +2,7 @@ import { useState } from "preact/hooks";
 import { Modal } from "./ui/Modal";
 import { Button } from "./ui/button";
 import { t } from "../lib/i18n";
-import { notifyError } from "../lib/notify";
+import { toast } from "../lib/toast";
 
 /** Shared name-only create dialog (skills/agents/rules/workflows/output/memory). */
 export function CreateNameDialog({
@@ -19,20 +19,24 @@ export function CreateNameDialog({
   onCreate: (name: string) => Promise<void> | void;
 }) {
   const [name, setName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   function close() {
     setName("");
+    setSubmitting(false);
     onClose();
   }
 
   async function submit() {
     const n = name.trim();
-    if (!n) return;
+    if (!n || submitting) return;
+    setSubmitting(true);
     try {
       await onCreate(n);
       close();
     } catch (e) {
-      await notifyError(e);
+      toast.error(String(e));
+      setSubmitting(false);
     }
   }
 
@@ -46,7 +50,9 @@ export function CreateNameDialog({
           <Button variant="ghost" onClick={close}>
             {t("providers.cancel")}
           </Button>
-          <Button onClick={() => void submit()}>{t("resource.create")}</Button>
+          <Button disabled={!name.trim() || submitting} onClick={() => void submit()}>
+            {t("resource.create")}
+          </Button>
         </>
       }
     >

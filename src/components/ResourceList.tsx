@@ -21,9 +21,9 @@ export function ResourceList({
             class="w-full rounded-md px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
             onClick={() => onSelect(r)}
           >
-            <div class="text-sm font-medium">{r.name}</div>
+            <div class="text-sm font-medium" title={r.name}>{r.name}</div>
             {r.description && (
-              <div class="truncate text-xs text-neutral-500">{r.description}</div>
+              <div class="truncate text-xs text-neutral-500" title={r.description}>{r.description}</div>
             )}
           </button>
         </li>

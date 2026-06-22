@@ -107,7 +107,7 @@ function ScopeRow({
             )}
           </div>
           {active && (
-            <div class="mt-0.5 truncate pl-6 text-xs text-neutral-400">{active}</div>
+            <div class="mt-0.5 truncate pl-6 text-xs text-neutral-400" title={active}>{active}</div>
           )}
         </button>
 
@@ -248,6 +248,7 @@ export function ScopeSidebar() {
       {/* Drag handle: resize the sidebar; persists on release. */}
       <div
         class="absolute -right-px top-0 h-full w-1.5 cursor-col-resize hover:bg-accent/40"
+        title={t("sidebar.dragToResize")}
         onPointerDown={startResize}
       />
     </aside>

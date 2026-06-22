@@ -1,12 +1,13 @@
 import { useEffect, useState } from "preact/hooks";
 import type { FileResource } from "../types/FileResource";
-import { notifyError } from "../lib/notify";
+import { toast } from "../lib/toast";
 import { useFsRefresh } from "../lib/useFsRefresh";
 import { t } from "../lib/i18n";
 import { ResourceList } from "./ResourceList";
 import { ResourceDetail } from "./ResourceDetail";
 import { PanelHeader } from "./PanelHeader";
 import { CreateNameDialog } from "./CreateNameDialog";
+import { Loading } from "./ui/Loading";
 
 /**
  * Generic panel for any file-backed resource kind. Behaviour is injected via
@@ -28,17 +29,19 @@ export function ResourcePanel({
   const [items, setItems] = useState<FileResource[]>([]);
   const [selected, setSelected] = useState<FileResource | null>(null);
   const [creating, setCreating] = useState(false);
+  // True only during the very first load — never re-raised on later refreshes.
+  const [loading, setLoading] = useState(true);
 
   async function refresh() {
     try {
       setItems(await load());
     } catch (e) {
-      await notifyError(e);
+      toast.error(String(e));
     }
   }
 
   useEffect(() => {
-    void refresh();
+    void refresh().finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useFsRefresh(refresh);
@@ -48,21 +51,26 @@ export function ResourcePanel({
       if (await remove(resource)) {
         setSelected(null);
         await refresh();
+        toast.success(t("common.deleted"));
       }
     } catch (e) {
-      await notifyError(e);
+      toast.error(String(e));
     }
   }
 
   return (
     <div class="flex h-full flex-col">
       <PanelHeader
-        onRefresh={() => void refresh()}
+        onRefresh={() => refresh()}
         onCreate={create ? () => setCreating(true) : undefined}
       />
 
       <div class="flex-1 overflow-auto px-3">
-        <ResourceList items={items} emptyLabel={t("resource.empty")} onSelect={setSelected} />
+        {loading ? (
+          <Loading />
+        ) : (
+          <ResourceList items={items} emptyLabel={t("resource.empty")} onSelect={setSelected} />
+        )}
       </div>
 
       <ResourceDetail

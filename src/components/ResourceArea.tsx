@@ -134,14 +134,27 @@ function panelProps(tab: ResourceTabKey, scope: ScopeRef): PanelProps {
 /**
  * The main area for a selected scope: resource tabs + the active panel. Tabs
  * depend on the scope (Memory is project-only; Plugins is user-only). Remounted
- * per scope (keyed in App), so the active tab resets when the scope changes.
+ * per scope (keyed in App); the active tab is persisted per scope, so returning
+ * to a scope restores the tab you were last on instead of snapping to default.
  */
 export function ResourceArea({ scope }: { scope: Scope }) {
   const ref = toScopeRef(scope);
   const tabs = tabsFor(scope);
-  const [tab, setTab] = useState<TabKey>(
-    scope.kind === "project" ? "sessions" : "plugins",
-  );
+  const tabStorageKey = `resourceArea:tab:${scope.id}`;
+  const defaultTab: TabKey = scope.kind === "project" ? "sessions" : "plugins";
+  const [tab, setTabState] = useState<TabKey>(() => {
+    try {
+      const saved = localStorage.getItem(tabStorageKey) as TabKey | null;
+      if (saved && tabs.some((tb) => tb.key === saved)) return saved;
+    } catch {}
+    return defaultTab;
+  });
+  const setTab = (next: TabKey) => {
+    setTabState(next);
+    try {
+      localStorage.setItem(tabStorageKey, next);
+    } catch {}
+  };
 
   return (
     <div class="flex h-full flex-col">

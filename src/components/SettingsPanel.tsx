@@ -5,11 +5,12 @@ import type { ScopeRef } from "../types/ScopeRef";
 import { invoke } from "../lib/ipc";
 import { providersTick } from "../lib/signals";
 import { t } from "../lib/i18n";
-import { notifyError } from "../lib/notify";
+import { toast } from "../lib/toast";
 import { useFsRefresh } from "../lib/useFsRefresh";
 import { PanelHeader } from "./PanelHeader";
 import { Segmented } from "./ui/Segmented";
 import { Button } from "./ui/button";
+import { Loading } from "./ui/Loading";
 
 type Doc = Record<string, unknown>;
 type Layer = "user" | "project" | "local";
@@ -85,8 +86,11 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
   const [rawText, setRawText] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   function reload() {
+    setLoading(true);
     invoke("read_settings", { scope: ref, layer })
       .then((d) => {
         setDoc(asObject(d));
@@ -94,7 +98,8 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
         setJsonError(null);
         setStatus(null);
       })
-      .catch((e) => void notifyError(e));
+      .catch((e) => toast.error(String(e)))
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => {
@@ -145,12 +150,16 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
         return;
       }
     }
+    setSaving(true);
     try {
       await invoke("write_settings", { scope: ref, layer, value: toWrite });
       setJsonError(null);
       setStatus(t("settings.saved"));
+      toast.success(t("common.saved"));
     } catch (e) {
-      await notifyError(e);
+      toast.error(String(e));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -171,7 +180,7 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
             <Button variant="ghost" onClick={toggleRaw}>
               {raw ? t("settings.form") : t("settings.raw")}
             </Button>
-            <Button onClick={() => void save()}>{t("detail.save")}</Button>
+            <Button onClick={() => void save()} disabled={!!jsonError || saving}>{t("detail.save")}</Button>
           </>
         }
       />
@@ -180,7 +189,9 @@ export function SettingsPanel({ scope }: { scope: Scope }) {
       {status && <div class="px-6 pb-1 text-sm text-green-600">{status}</div>}
 
       <div class="min-h-0 flex-1 overflow-auto px-6 pb-6">
-        {raw ? (
+        {loading ? (
+          <Loading />
+        ) : raw ? (
           <textarea
             class="h-full min-h-[20rem] w-full resize-none rounded border border-neutral-200 bg-transparent p-2 font-mono text-xs dark:border-neutral-700"
             value={rawText}

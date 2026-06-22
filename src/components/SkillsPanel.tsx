@@ -16,12 +16,14 @@ import type { SkillSource } from "../types/SkillSource";
 import type { SourceSkill } from "../types/SourceSkill";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
-import { notifyError, notifySuccess } from "../lib/notify";
+import { toast } from "../lib/toast";
+import { recordUpdated } from "../lib/updateTimes";
 import { useFsRefresh } from "../lib/useFsRefresh";
 import { ResourceDetail } from "./ResourceDetail";
 import { PanelHeader } from "./PanelHeader";
 import { Segmented } from "./ui/Segmented";
 import { CreateNameDialog } from "./CreateNameDialog";
+import { LastUpdated } from "./LastUpdated";
 
 const card =
   "rounded-lg border border-neutral-200 p-3 transition-colors dark:border-neutral-800";
@@ -86,10 +88,12 @@ export function SkillsPanel({
   const [addingSource, setAddingSource] = useState(false);
   const [creatingSkill, setCreatingSkill] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Name of the source currently being updated — drives the per-row spinner.
+  const [updatingSource, setUpdatingSource] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  async function showError(e: unknown) {
-    await notifyError(e);
+  function showError(e: unknown) {
+    toast.error(String(e));
   }
 
   async function refreshInstalled() {
@@ -130,22 +134,35 @@ export function SkillsPanel({
   // localStorage scroll/tab restoration above is only needed on scope switch.
   useFsRefresh(refresh);
 
-  async function run(fn: () => Promise<unknown>, successMessage?: string) {
+  // Wrap a mutation: refresh + restore scroll on success, surface the result as
+  // a toast. `pending` shows a live "loading → done" toast for slow, network-
+  // bound ops (clone/update); otherwise only a terminal toast is shown.
+  async function run(
+    fn: () => Promise<unknown>,
+    opts: { success?: string; pending?: string } = {},
+  ) {
     setBusy(true);
     const savedScrollTop = scrollRef.current?.scrollTop ?? 0;
     try {
-      await fn();
-      if (successMessage) {
-        await notifySuccess(successMessage);
+      const work = (async () => {
+        await fn();
+        await refresh();
+        requestAnimationFrame(() => {
+          if (scrollRef.current) scrollRef.current.scrollTop = savedScrollTop;
+        });
+      })();
+      if (opts.pending) {
+        await toast.promise(work, {
+          loading: opts.pending,
+          success: opts.success ?? t("common.done"),
+          error: (e) => String(e),
+        });
+      } else {
+        await work;
+        if (opts.success) toast.success(opts.success);
       }
-      await refresh();
-      requestAnimationFrame(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = savedScrollTop;
-        }
-      });
     } catch (e) {
-      await showError(e);
+      if (!opts.pending) showError(e);
     } finally {
       setBusy(false);
     }
@@ -192,7 +209,7 @@ export function SkillsPanel({
             ]}
           />
         }
-        onRefresh={() => void refresh()}
+        onRefresh={() => refresh()}
         createLabel={tab === "sources" ? t("skills.addSource") : t("resource.create")}
         onCreate={
           tab === "sources" ? () => setAddingSource(true) : () => setCreatingSkill(true)
@@ -233,7 +250,9 @@ export function SkillsPanel({
                     onClick={() =>
                       void (async () => {
                         if (await confirm(t("skills.confirmUninstall"), { kind: "warning" })) {
-                          await run(() => invoke("uninstall_skill", { name: s.name, scope }), t("skills.uninstalledSuccess"));
+                          await run(() => invoke("uninstall_skill", { name: s.name, scope }), {
+                            success: t("skills.uninstalledSuccess"),
+                          });
                         }
                       })()
                     }
@@ -266,9 +285,19 @@ export function SkillsPanel({
                     <button
                       class="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-900 disabled:opacity-50 dark:hover:text-white"
                       disabled={busy}
-                      onClick={() => void run(() => invoke("update_skill_source", { name: source.name }), t("skills.sourceUpdated"))}
+                      onClick={() => {
+                        setUpdatingSource(source.name);
+                        void run(
+                          async () => {
+                            await invoke("update_skill_source", { name: source.name });
+                            recordUpdated("source", source.name);
+                          },
+                          { pending: t("skills.sourceUpdating"), success: t("skills.sourceUpdated") },
+                        ).finally(() => setUpdatingSource(null));
+                      }}
                     >
-                      <RefreshCw size={13} /> {t("skills.updateSource")}
+                      <RefreshCw size={13} class={updatingSource === source.name ? "animate-spin" : ""} />{" "}
+                      {t("skills.updateSource")}
                     </button>
                     <button
                       class="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-red-500 disabled:opacity-50"
@@ -276,7 +305,9 @@ export function SkillsPanel({
                       onClick={() =>
                         void (async () => {
                           if (await confirm(t("skills.confirmRemoveSource"), { kind: "warning" })) {
-                            await run(() => invoke("remove_skill_source", { name: source.name }), t("skills.sourceRemoved"));
+                            await run(() => invoke("remove_skill_source", { name: source.name }), {
+                              success: t("skills.sourceRemoved"),
+                            });
                           }
                         })()
                       }
@@ -293,6 +324,7 @@ export function SkillsPanel({
                   <div class="mt-1 truncate pl-6 font-mono text-xs text-neutral-400" title={source.url}>
                     {source.url}
                   </div>
+                  <LastUpdated kind="source" name={source.name} class="mt-1 pl-6" />
 
                   {isOpen && (
                     <div class="mt-2 border-t border-neutral-200 pt-2 dark:border-neutral-800">
@@ -328,7 +360,10 @@ export function SkillsPanel({
                                         skill: skill.name,
                                         scope,
                                       }),
-                                    t("skills.installedSuccess"),
+                                    {
+                                      pending: t("skills.installingSkill"),
+                                      success: t("skills.installedSuccess"),
+                                    },
                                   )
                                 }
                               >
@@ -360,7 +395,10 @@ export function SkillsPanel({
         placeholder={t("skills.addSourcePlaceholder")}
         onClose={() => setAddingSource(false)}
         onCreate={async (url) => {
-          await run(() => invoke("add_skill_source", { url }), t("skills.sourceAdded"));
+          await run(() => invoke("add_skill_source", { url }), {
+            pending: t("skills.addingSource"),
+            success: t("skills.sourceAdded"),
+          });
           setAddingSource(false);
         }}
       />

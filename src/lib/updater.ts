@@ -1,25 +1,36 @@
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { ask, message } from "@tauri-apps/plugin-dialog";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { t } from "./i18n";
+import { toast } from "./toast";
 
 /**
  * Check for an update. On a new version, prompt (native dialog) to install +
- * relaunch. `silent` (startup) stays quiet on no-update / errors; the manual
- * check surfaces both. Endpoint + pubkey live in `tauri.conf.json#plugins.updater`.
+ * relaunch — that confirmation is a real decision, so it stays modal. A manual
+ * check (`silent === false`) surfaces progress + "up to date" / errors as
+ * non-blocking toasts; the startup check (`silent`) stays quiet unless an update
+ * is found. Endpoint + pubkey live in `tauri.conf.json#plugins.updater`.
  */
 export async function runUpdateCheck(silent: boolean): Promise<void> {
+  const checking = silent ? null : toast.loading(t("update.checking"));
   let update;
   try {
     update = await check();
   } catch (e) {
-    if (!silent) await message(`${t("update.checkFailed")}: ${e}`, { kind: "error" });
+    if (checking !== null) {
+      toast.dismiss(checking);
+      toast.error(`${t("update.checkFailed")}: ${e}`);
+    }
     return;
   }
   if (!update) {
-    if (!silent) await message(t("update.upToDate"));
+    if (checking !== null) {
+      toast.dismiss(checking);
+      toast.success(t("update.upToDate"));
+    }
     return;
   }
+  if (checking !== null) toast.dismiss(checking);
   const ok = await ask(t("update.found", update.version), {
     title: t("update.title"),
     kind: "info",
@@ -29,6 +40,6 @@ export async function runUpdateCheck(silent: boolean): Promise<void> {
     await update.downloadAndInstall();
     await relaunch();
   } catch (e) {
-    await message(`${t("update.installFailed")}: ${e}`, { kind: "error" });
+    toast.error(`${t("update.installFailed")}: ${e}`);
   }
 }

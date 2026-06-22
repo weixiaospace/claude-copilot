@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { Loader2 } from "lucide-preact";
-import { notifyError } from "../lib/notify";
+import { toast } from "../lib/toast";
 import { useFsRefresh } from "../lib/useFsRefresh";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { UsageResult } from "../types/UsageResult";
@@ -91,7 +91,9 @@ export function UsagePanel({ scope }: { scope: ScopeRef }) {
   const scopeKey = JSON.stringify(scope);
   const [granularity, setGranularity] = useState<Granularity>("day");
   const [day, setDay] = useState<UsageResult | null>(() => dayCache.get(scopeKey) ?? null);
-  const [loading, setLoading] = useState(false);
+  // Start in the loading state when there's no cached scan, so the spinner is on
+  // screen from the first paint instead of a blank frame before the effect runs.
+  const [loading, setLoading] = useState(() => !dayCache.has(scopeKey));
 
   async function load(force = false) {
     if (!force) {
@@ -107,7 +109,7 @@ export function UsagePanel({ scope }: { scope: ScopeRef }) {
       dayCache.set(scopeKey, r);
       setDay(r);
     } catch (e) {
-      await notifyError(e);
+      toast.error(String(e));
     } finally {
       setLoading(false);
     }
@@ -126,7 +128,7 @@ export function UsagePanel({ scope }: { scope: ScopeRef }) {
   return (
     <div class="flex h-full flex-col">
       <PanelHeader
-        onRefresh={() => void load(true)}
+        onRefresh={() => load(true)}
         extra={
           <Segmented
             value={granularity}

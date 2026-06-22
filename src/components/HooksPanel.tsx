@@ -3,9 +3,10 @@ import type { ScopeRef } from "../types/ScopeRef";
 import type { HookEntry } from "../types/HookEntry";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
-import { notifyError } from "../lib/notify";
+import { toast } from "../lib/toast";
 import { useFsRefresh } from "../lib/useFsRefresh";
 import { PanelHeader } from "./PanelHeader";
+import { Loading } from "./ui/Loading";
 
 type Group = { source: string; path: string | null; entries: HookEntry[] };
 
@@ -26,17 +27,21 @@ function groupBySource(entries: HookEntry[]): Group[] {
 /** Read-only merged view of hooks for a scope, grouped by source file. */
 export function HooksPanel({ scope }: { scope: ScopeRef }) {
   const [entries, setEntries] = useState<HookEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  async function refresh() {
+  async function refresh(initial = false) {
+    if (initial) setLoading(true);
     try {
       setEntries(await invoke("list_hooks", { scope }));
     } catch (e) {
-      await notifyError(e);
+      toast.error(String(e));
+    } finally {
+      if (initial) setLoading(false);
     }
   }
 
   useEffect(() => {
-    void refresh();
+    void refresh(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(scope)]);
   useFsRefresh(refresh);
@@ -45,12 +50,14 @@ export function HooksPanel({ scope }: { scope: ScopeRef }) {
 
   return (
     <div class="flex h-full flex-col">
-      <PanelHeader onRefresh={() => void refresh()} />
+      <PanelHeader onRefresh={() => refresh()} />
       <div class="min-h-0 flex-1 overflow-auto px-6 pb-3">
-        {groups.length === 0 && (
+        {loading ? (
+          <Loading />
+        ) : groups.length === 0 ? (
           <div class="py-6 text-sm text-neutral-400">{t("hooks.empty")}</div>
-        )}
-        {groups.map((g) => (
+        ) : null}
+        {!loading && groups.map((g) => (
         <section key={(g.path ?? "") + g.source} class="mb-4">
           <header class="mb-1 flex items-center gap-2">
             <span class="rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-medium dark:bg-neutral-800">
@@ -64,7 +71,13 @@ export function HooksPanel({ scope }: { scope: ScopeRef }) {
             {g.path && (
               <button
                 class="shrink-0 text-xs text-accent hover:underline"
-                onClick={() => void invoke("open_in_editor", { path: g.path! })}
+                onClick={async () => {
+                  try {
+                    await invoke("open_in_editor", { path: g.path! });
+                  } catch (e) {
+                    toast.error(String(e));
+                  }
+                }}
               >
                 {t("hooks.openFile")}
               </button>
