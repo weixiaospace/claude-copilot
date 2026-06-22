@@ -59,7 +59,16 @@ export interface Commands {
   list_hooks: { args: { scope: ScopeRef }; result: HookEntry[] };
   list_mcp: { args: { scope: ScopeRef }; result: McpServer[] };
   add_mcp: {
-    args: { scope: ScopeRef; name: string; transport: string; target: string };
+    args: {
+      scope: ScopeRef;
+      layer: string;
+      transport: string;
+      name: string;
+      target: string;
+      args: string[];
+      env: string[];
+      headers: string[];
+    };
     result: void;
   };
   remove_mcp: { args: { scope: ScopeRef; name: string; source: McpSource }; result: void };

@@ -31,6 +31,29 @@ function groupBySource(servers: McpServer[]): Group[] {
   return groups;
 }
 
+/** Trust badge for a project `.mcp.json` server (pending/rejected/approved). */
+function ApprovalBadge({ approval }: { approval: string }) {
+  const tone: Record<string, string> = {
+    pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    rejected: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+    approved: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+  };
+  const cls = tone[approval];
+  if (!cls) return null;
+  return (
+    <span class={"shrink-0 rounded px-1.5 py-0.5 text-xs font-medium " + cls}>
+      {t(`mcp.approval.${approval}`)}
+    </span>
+  );
+}
+
+const tokens = (s: string) => s.trim().split(/\s+/).filter(Boolean);
+const lines = (s: string) =>
+  s
+    .split("\n")
+    .map((x) => x.trim())
+    .filter(Boolean);
+
 /** MCP servers for a scope, grouped by source. Reads parse JSON directly;
  *  add/remove go through the `claude mcp` CLI. */
 export function McpPanel({ scope }: { scope: ScopeRef }) {
@@ -38,11 +61,16 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
-  const [target, setTarget] = useState("");
   const [transport, setTransport] = useState("stdio");
+  const [layer, setLayer] = useState("local");
+  const [target, setTarget] = useState("");
+  const [argsText, setArgsText] = useState("");
+  const [envText, setEnvText] = useState("");
+  const [headersText, setHeadersText] = useState("");
   const [saving, setSaving] = useState(false);
 
   const key = JSON.stringify(scope);
+  const isStdio = transport === "stdio";
 
   async function refresh() {
     try {
@@ -61,15 +89,38 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
   }, [key]);
   useFsRefresh(refresh);
 
+  function resetForm() {
+    setName("");
+    setTarget("");
+    setArgsText("");
+    setEnvText("");
+    setHeadersText("");
+    setTransport("stdio");
+    setLayer("local");
+  }
+
+  function closeForm() {
+    setCreating(false);
+    resetForm();
+  }
+
   async function add() {
     if (!name.trim() || !target.trim() || saving) return;
     setSaving(true);
     try {
-      await invoke("add_mcp", { scope, name: name.trim(), transport, target: target.trim() });
-      setName("");
-      setTarget("");
-      setCreating(false);
+      await invoke("add_mcp", {
+        scope,
+        layer: scope.kind === "project" ? layer : "user",
+        transport,
+        name: name.trim(),
+        target: target.trim(),
+        args: isStdio ? tokens(argsText) : [],
+        // env is KEY=VALUE lines; drop anything that isn't a pair.
+        env: isStdio ? lines(envText).filter((l) => l.includes("=")) : [],
+        headers: isStdio ? [] : lines(headersText),
+      });
       toast.success(t("mcp.added"));
+      closeForm();
       await refresh();
     } catch (e) {
       toast.error(String(e));
@@ -117,6 +168,7 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
                   <span class="rounded bg-neutral-100 px-1 text-xs text-neutral-500 dark:bg-neutral-800">
                     {s.transport}
                   </span>
+                  {s.approval && <ApprovalBadge approval={s.approval} />}
                   <span class="min-w-0 flex-1 truncate text-xs text-neutral-400" title={s.url ?? s.command ?? ""}>
                     {s.url ?? s.command ?? ""}
                   </span>
@@ -137,18 +189,31 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
 
       <Modal
         open={creating}
-        onClose={() => setCreating(false)}
-        title={t("mcp.title")}
+        onClose={closeForm}
+        title={t("mcp.addTitle")}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setCreating(false)}>
+            <Button variant="ghost" onClick={closeForm}>
               {t("providers.cancel")}
             </Button>
-            <Button onClick={() => void add()} disabled={!name.trim() || !target.trim() || saving}>{t("resource.create")}</Button>
+            <Button onClick={() => void add()} disabled={!name.trim() || !target.trim() || saving}>
+              {t("resource.create")}
+            </Button>
           </>
         }
       >
         <div class="flex flex-col gap-3">
+          {scope.kind === "project" && (
+            <label class="flex flex-col gap-1 text-xs text-neutral-500">
+              {t("mcp.layer")}
+              <Select value={layer} onChange={(e) => setLayer((e.target as HTMLSelectElement).value)}>
+                <option value="local">{t("mcp.layerLocal")}</option>
+                <option value="project">{t("mcp.layerProject")}</option>
+              </Select>
+              <span class="text-xs text-neutral-400">{t("mcp.layerHint")}</span>
+            </label>
+          )}
+
           <label class="flex flex-col gap-1 text-xs text-neutral-500">
             {t("mcp.namePlaceholder")}
             <input
@@ -159,8 +224,9 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
               onInput={(e) => setName((e.target as HTMLInputElement).value)}
             />
           </label>
+
           <label class="flex flex-col gap-1 text-xs text-neutral-500">
-            {t("providers.kind")}
+            {t("mcp.transport")}
             <Select
               value={transport}
               onChange={(e) => setTransport((e.target as HTMLSelectElement).value)}
@@ -170,17 +236,51 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
               <option value="http">http</option>
             </Select>
           </label>
+
           <label class="flex flex-col gap-1 text-xs text-neutral-500">
-            {t("mcp.targetPlaceholder")}
+            {isStdio ? t("mcp.command") : t("mcp.url")}
             <input
               class={inputClass}
+              placeholder={isStdio ? t("mcp.commandPlaceholder") : t("mcp.urlPlaceholder")}
               value={target}
               onInput={(e) => setTarget((e.target as HTMLInputElement).value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void add();
-              }}
             />
           </label>
+
+          {isStdio ? (
+            <>
+              <label class="flex flex-col gap-1 text-xs text-neutral-500">
+                {t("mcp.args")}
+                <input
+                  class={inputClass}
+                  placeholder={t("mcp.argsPlaceholder")}
+                  value={argsText}
+                  onInput={(e) => setArgsText((e.target as HTMLInputElement).value)}
+                />
+              </label>
+              <label class="flex flex-col gap-1 text-xs text-neutral-500">
+                {t("mcp.env")}
+                <textarea
+                  class={inputClass + " resize-y font-mono"}
+                  rows={2}
+                  placeholder={t("mcp.envPlaceholder")}
+                  value={envText}
+                  onInput={(e) => setEnvText((e.target as HTMLTextAreaElement).value)}
+                />
+              </label>
+            </>
+          ) : (
+            <label class="flex flex-col gap-1 text-xs text-neutral-500">
+              {t("mcp.headers")}
+              <textarea
+                class={inputClass + " resize-y font-mono"}
+                rows={2}
+                placeholder={t("mcp.headersPlaceholder")}
+                value={headersText}
+                onInput={(e) => setHeadersText((e.target as HTMLTextAreaElement).value)}
+              />
+            </label>
+          )}
         </div>
       </Modal>
     </div>

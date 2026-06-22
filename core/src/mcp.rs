@@ -28,6 +28,24 @@ pub struct McpServer {
     pub url: Option<String>,
     pub command: Option<String>,
     pub source: McpSource,
+    /// Trust state of a **project** (`.mcp.json`) server: `approved` / `pending`
+    /// / `rejected`, derived from the project's enabled/disabled lists in
+    /// `~/.claude.json`. `None` for user/local servers, which are always active.
+    pub approval: Option<String>,
+}
+
+/// Trust state of a project `.mcp.json` server given the project's
+/// `enabledMcpjsonServers` / `disabledMcpjsonServers` name lists. A server the
+/// user hasn't explicitly approved or rejected is `pending` — Claude Code won't
+/// use it until it's approved via the trust dialog.
+pub fn mcpjson_approval(name: &str, enabled: &[String], disabled: &[String]) -> String {
+    if disabled.iter().any(|n| n == name) {
+        "rejected".to_string()
+    } else if enabled.iter().any(|n| n == name) {
+        "approved".to_string()
+    } else {
+        "pending".to_string()
+    }
 }
 
 /// Parse a `mcpServers` object (`{ name: { type?/transport?, url?, command? } }`)
@@ -61,6 +79,8 @@ pub fn parse_servers(map: &Value, source: McpSource) -> Vec<McpServer> {
                 url,
                 command,
                 source,
+                // Filled in by the command layer for project-source servers.
+                approval: None,
             }
         })
         .collect();
@@ -100,5 +120,17 @@ mod tests {
     fn non_object_yields_nothing() {
         assert!(parse_servers(&Value::Null, McpSource::Project).is_empty());
         assert!(parse_servers(&json!([]), McpSource::Local).is_empty());
+    }
+
+    #[test]
+    fn approval_from_lists() {
+        let enabled = vec!["ok".to_string()];
+        let disabled = vec!["bad".to_string()];
+        assert_eq!(mcpjson_approval("ok", &enabled, &disabled), "approved");
+        assert_eq!(mcpjson_approval("bad", &enabled, &disabled), "rejected");
+        assert_eq!(mcpjson_approval("unseen", &enabled, &disabled), "pending");
+        // Disabled wins over enabled if a name is in both.
+        let both = vec!["x".to_string()];
+        assert_eq!(mcpjson_approval("x", &both, &both), "rejected");
     }
 }

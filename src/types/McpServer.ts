@@ -9,4 +9,10 @@ export type McpServer = { name: string,
  * `stdio` / `sse` / `http` / `unknown` — from `type`/`transport`, or
  * inferred from whether a command or url is present.
  */
-transport: string, url: string | null, command: string | null, source: McpSource, };
+transport: string, url: string | null, command: string | null, source: McpSource, 
+/**
+ * Trust state of a **project** (`.mcp.json`) server: `approved` / `pending`
+ * / `rejected`, derived from the project's enabled/disabled lists in
+ * `~/.claude.json`. `None` for user/local servers, which are always active.
+ */
+approval: string | null, };
