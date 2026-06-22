@@ -25,3 +25,22 @@
 - `src-tauri/src/commands/providers.rs`
 - `src/components/ConnectionsPage.tsx`
 - `src/lib/signals.ts`
+
+## 从技能来源安装时，同名技能直接覆盖（缺少确认弹窗）
+
+**状态：** 已知限制，已记录在此。
+
+**问题描述：**
+从「技能 → 来源」安装一个技能时，如果当前作用域已存在同名技能，`install_skill_from_source` 会直接删除旧目录并覆盖，不弹确认框。这符合「安装即最新」的预期，但用户若对已安装技能做过本地修改，会在无提示的情况下丢失。
+
+**当前行为：**
+- 已安装技能在来源列表中显示「已安装」徽标；内容有差异时显示「可更新」。
+- 点击安装/更新即覆盖，无二次确认。
+
+**后续可优化方向：**
+- 当目标目录已存在时，先弹 Tauri 原生确认框（覆盖 / 取消）。
+- 可进一步检测目标技能是否带有 `.claude-copilot/source.json`：无该元数据（即用户手写技能）时给更强的警告。
+
+**相关文件：**
+- `src-tauri/src/commands/skills.rs`（`install_skill_from_source`）
+- `src/components/SkillsPanel.tsx`
