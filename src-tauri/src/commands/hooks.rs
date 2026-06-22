@@ -1,6 +1,7 @@
-//! Read-only hooks: merge the relevant sources for a scope into a flat list.
-//! User scope → user settings + installed-plugin hooks; project scope → project
-//! + local settings. (No in-UI editing; the UI opens the source file instead.)
+//! Read-only hooks: gather a scope's own hooks into a flat list. User scope →
+//! user settings; project scope → project + local settings. Plugin-bundled
+//! hooks are shown under their plugin (Plugins panel), not aggregated here —
+//! ADR-0001's "no double exposure". (No in-UI editing; the UI opens the file.)
 
 use std::fs;
 use std::path::Path;
@@ -27,54 +28,18 @@ fn from_settings(file: &Path, source: HookSource) -> Vec<HookEntry> {
     }
 }
 
-/// Hooks shipped by installed plugins: each entry's `installPath/hooks/hooks.json`.
-fn from_plugins(home: &Path) -> Vec<HookEntry> {
-    let installed = home
-        .join(".claude")
-        .join("plugins")
-        .join("installed_plugins.json");
-    let Ok(text) = fs::read_to_string(&installed) else {
-        return Vec::new();
-    };
-    let Ok(doc) = serde_json::from_str::<Value>(&text) else {
-        return Vec::new();
-    };
-    let Some(plugins) = doc.get("plugins").and_then(Value::as_object) else {
-        return Vec::new();
-    };
-
-    let mut out = Vec::new();
-    for installs in plugins.values() {
-        let Some(installs) = installs.as_array() else {
-            continue;
-        };
-        for install in installs {
-            if let Some(path) = install.get("installPath").and_then(Value::as_str) {
-                let hooks_json = Path::new(path).join("hooks").join("hooks.json");
-                if let Some(map) = read_hooks_map(&hooks_json) {
-                    out.extend(hooks::flatten(
-                        &map,
-                        HookSource::Plugin,
-                        &hooks_json.to_string_lossy(),
-                    ));
-                }
-            }
-        }
-    }
-    out
-}
-
 #[tauri::command]
 pub fn list_hooks(scope: ScopeRef) -> Result<Vec<HookEntry>, String> {
     let home = home_dir()?;
     let mut out = Vec::new();
     match scope {
         ScopeRef::User => {
+            // User scope shows only the user's own settings hooks. Plugin hooks
+            // live under their plugin (Plugins panel), not here (ADR-0001).
             out.extend(from_settings(
                 &home.join(".claude").join("settings.json"),
                 HookSource::User,
             ));
-            out.extend(from_plugins(&home));
         }
         ScopeRef::Project { id } => {
             let base = Path::new(&id).join(".claude");
@@ -92,7 +57,7 @@ pub fn list_hooks(scope: ScopeRef) -> Result<Vec<HookEntry>, String> {
 mod smoke {
     use super::*;
 
-    /// Diagnostic: dump real User-scope hooks (incl. installed-plugin hooks).
+    /// Diagnostic: dump real User-scope hooks (user settings only).
     /// `cargo test -p claude-copilot-desktop -- --ignored dumps_user_hooks --nocapture`
     #[test]
     #[ignore = "reads the real ~/.claude; run manually"]
