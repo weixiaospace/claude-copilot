@@ -2,7 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { toast } from "../lib/toast";
 import { useFsRefresh } from "../lib/useFsRefresh";
-import { Activity, Loader2, X } from "lucide-preact";
+import { Activity, Loader2, Pencil, X } from "lucide-preact";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { McpServer } from "../types/McpServer";
 import type { McpKeyVal } from "../types/McpKeyVal";
@@ -105,6 +105,8 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
   const [servers, setServers] = useState<McpServer[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  // The server being edited (null = the form is in "add" mode).
+  const [editing, setEditing] = useState<McpServer | null>(null);
   const [name, setName] = useState("");
   const [transport, setTransport] = useState("stdio");
   const [layer, setLayer] = useState("local");
@@ -168,31 +170,80 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
 
   function closeForm() {
     setCreating(false);
+    setEditing(null);
     resetForm();
   }
 
-  async function add() {
+  function openAdd() {
+    resetForm();
+    setEditing(null);
+    setCreating(true);
+  }
+
+  /** Open the form pre-filled to edit an existing server. */
+  function openEdit(s: McpServer) {
+    setName(s.name);
+    setTransport(s.transport === "sse" || s.transport === "http" ? s.transport : "stdio");
+    setTarget(s.command ?? s.url ?? "");
+    setArgsText(s.args.join(" "));
+    setEnvText(s.env.map((kv) => `${kv.key}=${kv.value}`).join("\n"));
+    setHeadersText(s.headers.map((kv) => `${kv.key}: ${kv.value}`).join("\n"));
+    setLayer(s.source === "project" ? "project" : "local");
+    setCreating(false);
+    setEditing(s);
+  }
+
+  // Layer to (re)write to: an edited server stays at its original source's
+  // layer; a new one uses the picker (project scope) or `user`.
+  const writeLayer = editing
+    ? editing.source === "user"
+      ? "user"
+      : editing.source === "project"
+        ? "project"
+        : "local"
+    : scope.kind === "project"
+      ? layer
+      : "user";
+
+  async function submit() {
     if (!name.trim() || !target.trim() || saving) return;
     setSaving(true);
+    const payload = {
+      scope,
+      layer: writeLayer,
+      transport,
+      name: name.trim(),
+      target: target.trim(),
+      args: isStdio ? tokens(argsText) : [],
+      // env is KEY=VALUE lines (stdio only); drop anything that isn't a pair.
+      env: isStdio ? lines(envText).filter((l) => l.includes("=")) : [],
+      headers: isStdio ? [] : lines(headersText),
+    };
+    // Track whether the original was already removed, so an add failure can drop
+    // to "add" mode (edit isn't atomic — the CLI has no in-place update).
+    let removed = false;
     try {
-      await invoke("add_mcp", {
-        scope,
-        layer: scope.kind === "project" ? layer : "user",
-        transport,
-        name: name.trim(),
-        target: target.trim(),
-        args: isStdio ? tokens(argsText) : [],
-        // env is KEY=VALUE lines; drop anything that isn't a pair.
-        env: isStdio ? lines(envText).filter((l) => l.includes("=")) : [],
-        headers: isStdio ? [] : lines(headersText),
-      });
-      toast.success(t("mcp.added"));
+      if (editing) {
+        await invoke("remove_mcp", { scope, name: editing.name, source: editing.source });
+        removed = true;
+        await invoke("add_mcp", payload);
+        toast.success(t("mcp.updated"));
+      } else {
+        await invoke("add_mcp", payload);
+        toast.success(t("mcp.added"));
+      }
       closeForm();
-      await refresh();
     } catch (e) {
       toast.error(String(e));
+      // Original is gone but the re-add failed: keep the form open in add mode
+      // (values intact) so a retry just re-adds instead of removing again.
+      if (removed) {
+        setEditing(null);
+        setCreating(true);
+      }
     } finally {
       setSaving(false);
+      await refresh();
     }
   }
 
@@ -229,7 +280,7 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
           ) : undefined
         }
         onRefresh={() => refresh()}
-        onCreate={() => setCreating(true)}
+        onCreate={openAdd}
       />
 
       <div class="flex-1 overflow-auto px-6 pb-3">
@@ -268,6 +319,14 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
                     {s.url ?? s.command ?? ""}
                   </span>
                   <button
+                    class="shrink-0 text-neutral-400 hover:text-accent"
+                    title={t("mcp.edit")}
+                    aria-label={t("mcp.edit")}
+                    onClick={() => openEdit(s)}
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
                     class="shrink-0 text-neutral-400 hover:text-red-500"
                     title={t("mcp.remove")}
                     aria-label={t("mcp.remove")}
@@ -283,22 +342,22 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
       </div>
 
       <Modal
-        open={creating}
+        open={creating || editing !== null}
         onClose={closeForm}
-        title={t("mcp.addTitle")}
+        title={editing ? t("mcp.editTitle") : t("mcp.addTitle")}
         footer={
           <>
             <Button variant="ghost" onClick={closeForm}>
               {t("providers.cancel")}
             </Button>
-            <Button onClick={() => void add()} disabled={!name.trim() || !target.trim() || saving}>
-              {t("resource.create")}
+            <Button onClick={() => void submit()} disabled={!name.trim() || !target.trim() || saving}>
+              {editing ? t("detail.save") : t("resource.create")}
             </Button>
           </>
         }
       >
         <div class="flex flex-col gap-3">
-          {scope.kind === "project" && (
+          {!editing && scope.kind === "project" && (
             <label class="flex flex-col gap-1 text-xs text-neutral-500">
               {t("mcp.layer")}
               <Select value={layer} onChange={(e) => setLayer((e.target as HTMLSelectElement).value)}>
