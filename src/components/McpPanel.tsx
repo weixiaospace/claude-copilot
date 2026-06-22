@@ -2,7 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { toast } from "../lib/toast";
 import { useFsRefresh } from "../lib/useFsRefresh";
-import { Activity, Loader2, Pencil, X } from "lucide-preact";
+import { Activity, Globe, Loader2, Pencil, Terminal, X } from "lucide-preact";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { McpServer } from "../types/McpServer";
 import type { McpKeyVal } from "../types/McpKeyVal";
@@ -18,6 +18,10 @@ type Group = { source: string; servers: McpServer[] };
 
 const inputClass =
   "w-full rounded-md border border-neutral-200 bg-transparent px-3 py-2 text-sm dark:border-neutral-700";
+
+// Matches the Skills/Plugins card language for a consistent look across panels.
+const card =
+  "rounded-lg border border-neutral-200 p-3 transition-colors hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700";
 
 function groupBySource(servers: McpServer[]): Group[] {
   const groups: Group[] = [];
@@ -290,52 +294,67 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
         )}
         {groups.map((g) => (
           <section key={g.source} class="mb-4">
-            <header class="mb-1">
-              <span class="rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-medium dark:bg-neutral-800">
-                {t(`mcp.source.${g.source}`)}
-              </span>
-            </header>
-            <ul class="flex flex-col gap-1">
-              {g.servers.map((s) => (
-                <li
-                  key={s.name}
-                  class="flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800"
-                >
-                  <button
-                    class="font-medium hover:text-accent"
-                    onClick={() => {
-                      setReveal(false);
-                      setDetail(s);
-                    }}
-                  >
-                    {s.name}
-                  </button>
-                  <span class="rounded bg-neutral-100 px-1 text-xs text-neutral-500 dark:bg-neutral-800">
-                    {s.transport}
-                  </span>
-                  {s.approval && <ApprovalBadge approval={s.approval} />}
-                  {health[s.name] && <HealthBadge status={health[s.name]} />}
-                  <span class="min-w-0 flex-1 truncate text-xs text-neutral-400" title={s.url ?? s.command ?? ""}>
-                    {s.url ?? s.command ?? ""}
-                  </span>
-                  <button
-                    class="shrink-0 text-neutral-400 hover:text-accent"
-                    title={t("mcp.edit")}
-                    aria-label={t("mcp.edit")}
-                    onClick={() => openEdit(s)}
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    class="shrink-0 text-neutral-400 hover:text-red-500"
-                    title={t("mcp.remove")}
-                    aria-label={t("mcp.remove")}
-                    onClick={() => void remove(s)}
-                  >
-                    <X size={15} />
-                  </button>
-                </li>
-              ))}
+            {/* Source label only matters in a project, where Project (.mcp.json,
+                shared) and Local (personal) servers coexist. In User scope every
+                server is User-source, so the label just repeats the scope. */}
+            {scope.kind === "project" && (
+              <header class="mb-1">
+                <span class="rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-medium dark:bg-neutral-800">
+                  {t(`mcp.source.${g.source}`)}
+                </span>
+              </header>
+            )}
+            <ul class="flex flex-col gap-2">
+              {g.servers.map((s) => {
+                const Icon = s.transport === "stdio" ? Terminal : Globe;
+                const target = s.url ?? s.command ?? "";
+                return (
+                  <li key={s.name} class={card}>
+                    <div class="flex items-center gap-2">
+                      <Icon size={16} class="shrink-0 text-neutral-400" />
+                      <button
+                        class="text-left text-sm font-semibold hover:text-accent"
+                        onClick={() => {
+                          setReveal(false);
+                          setDetail(s);
+                        }}
+                      >
+                        {s.name}
+                      </button>
+                      <span class="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-medium text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                        {s.transport}
+                      </span>
+                      {s.approval && <ApprovalBadge approval={s.approval} />}
+                      {health[s.name] && <HealthBadge status={health[s.name]} />}
+                      <div class="flex-1" />
+                      <button
+                        class="shrink-0 text-neutral-400 transition-colors hover:text-accent"
+                        title={t("mcp.edit")}
+                        aria-label={t("mcp.edit")}
+                        onClick={() => openEdit(s)}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        class="shrink-0 text-neutral-400 transition-colors hover:text-red-500"
+                        title={t("mcp.remove")}
+                        aria-label={t("mcp.remove")}
+                        onClick={() => void remove(s)}
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                    {target && (
+                      <div
+                        class="mt-1 truncate pl-6 font-mono text-xs text-neutral-400"
+                        title={target}
+                      >
+                        {target}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </section>
         ))}
