@@ -1,30 +1,30 @@
 # 待办事项
 
-## 「接入」页面首次打开时仍会弹出钥匙串授权框
+## 「接入」页面在缓存未命中时仍可能弹一次钥匙串授权框
 
-**状态：** 已知限制，已记录在此。
+**状态：** 大部分已修复；残留一个冷缓存边界场景，记录在此。
 
-**问题描述：**
-应用启动时已经不再读取 OS 钥匙串，但点击「接入」页面时仍会出现 1~2 次 macOS 钥匙串授权弹窗。原因如下：
+**已修复（原因已消除）：**
+进入「接入」页面时列出 profile 的调用，已从 `list_profiles(check_secrets: true)` 改为 `check_secrets: false`（`ConnectionsPage.tsx`）。后端该路径只读 `profiles.json` 里存储的 `has_secret` 标志来驱动「缺少凭证」徽标，**完全不触碰钥匙串**（`providers.rs::list_profiles`）。因此「为了显示徽标而探测钥匙串」这个原因已不存在。
 
-1. 启动时为了彻底避免弹窗，跳过了 `has_secret` 检查，导致内存中的钥匙串缓存是空的。
-2. 第一次进入「接入」页面时，需要调用 `list_profiles(check_secrets: true)` 来显示「缺少凭证」等状态。
-3. 在未签名的 `pnpm tauri dev` 开发构建中，这一次钥匙串读取可能分裂成两个授权提示。
+**残留场景：**
+进入页面时还会调用 `reloadActiveProfiles → list_active_profiles → derive_active`（`providers.rs`）来推断每个作用域当前激活的 profile。它有 `state.json#active_providers` 缓存做快速路径：缓存命中且签名匹配时直接返回，不读钥匙串。但在「缓存未命中或签名对不上」**且**「该作用域的 `env` 里确实配置了某个 provider」时，会逐个 `get_secret` 比对 token，从而触发一次钥匙串读取。正常使用时缓存是热的，不会弹窗；冷缓存（如首次安装、`state.json` 被清）才会出现。
 
 **当前规避方法：**
-- 在 dev 会话中点击一次「始终允许」，后续再进「接入」页面会走缓存，不再弹窗。
-- 正式签名/公证后的应用，用户只需在第一次使用时授权一次。
+- 缓存一旦在激活/停用时写入，后续进页面即走快速路径，不再读钥匙串。
+- 未签名的 `pnpm tauri dev` 构建里，这一次读取可能分裂成 1~2 个授权提示；点一次「始终允许」即可。
 
 **后续可优化方向：**
-- 去掉「接入」列表中的实时 `has_secret` 检查，改为按需检查（例如在激活 profile 时）。
-- 启动后在后台静默预热钥匙串缓存（仍会触发一次读取）。
-- 将凭证是否存在的状态写入 `profiles.json` 元数据，避免每次列出都探测钥匙串。
+- 仅订阅模式 / 无 provider env 的作用域已经短路（`derive_active` 开头即返回），无需进一步处理。
+- 对确实配了 provider env 的作用域，可在激活时就把激活态持久化得更完整，缩小冷缓存窗口。
+- 或将「token 与哪个 profile 匹配」的推断结果也缓存进 `state.json`，进一步减少冷启动时的钥匙串比对。
 
 **相关文件：**
+- `src-tauri/src/commands/providers.rs`（`list_profiles` / `derive_active` / `list_active_profiles`）
 - `src-tauri/src/secrets.rs`
-- `src-tauri/src/commands/providers.rs`
+- `src-tauri/src/state.rs`（`active_providers` 缓存）
 - `src/components/ConnectionsPage.tsx`
-- `src/lib/signals.ts`
+- `src/lib/signals.ts`（`reloadActiveProfiles`）
 
 ## 从技能来源安装时，同名技能直接覆盖（缺少确认弹窗）
 
