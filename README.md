@@ -4,7 +4,7 @@
 
 可视化管理 Claude Code 配置的桌面应用 · A desktop client for managing Claude Code configuration
 
-[![release](https://img.shields.io/badge/release-v0.2.1-D97757)](https://cnb.cool/weixiao.space/claude-copilot/-/releases)
+[![release](https://img.shields.io/badge/release-v0.2.2-D97757)](https://cnb.cool/weixiao.space/claude-copilot/-/releases)
 [![platform](https://img.shields.io/badge/platform-macOS%20%C2%B7%20Windows-555)](#下载安装)
 [![built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24C8DB)](https://tauri.app)
 
@@ -51,8 +51,8 @@ Claude Copilot 是一个 [Tauri 2](https://tauri.app) 桌面客户端,把 Claude
 
 | 平台 | 文件 |
 |---|---|
-| **macOS**(Apple Silicon) | `ClaudeCopilot_0.2.1_aarch64.dmg` |
-| **Windows**(x64) | `ClaudeCopilot_0.2.1_x64-setup.exe` |
+| **macOS**(Apple Silicon) | `ClaudeCopilot_0.2.2_aarch64.dmg` |
+| **Windows**(x64) | `ClaudeCopilot_0.2.2_x64-setup.exe` |
 
 > **macOS 首次打开**:v0.1 的 mac 包尚未做 Apple 公证,首次打开会被 Gatekeeper 拦。**右键点图标 → 打开**,在弹窗里再次确认即可;或终端执行 `xattr -dr com.apple.quarantine /Applications/ClaudeCopilot.app`。装好后,后续版本会自动更新,无需重复此操作。
 
@@ -87,6 +87,19 @@ pnpm tauri build    # 出包
 发版命令见 [`scripts/`](scripts/) 与 [`.github/workflows/release.yml`](.github/workflows/release.yml)。
 
 ## 更新日志
+
+### v0.2.2
+
+- **技能来源（Skill Source）**
+  - 「技能」面板新增「来源」标签：可添加无 marketplace manifest 的技能 Git 仓库，克隆后探测其中的技能并按需安装到当前作用域。
+  - 来源仓库按 URL 派生唯一嵌套目录克隆（如 `github.com/owner/repo`），显示名递进去重（repo → owner/repo → 完整路径）。
+  - 已安装技能按目录内容哈希检测「可更新」；删除来源不影响已安装技能。
+- **插件市场修复**
+  - 修复 GUI 启动时拿不到系统 PATH 导致「未安装 CLI」的问题，统一解析 `claude` 可执行文件路径。
+  - 添加市场时自动将仓库 URL 规范化为 raw `marketplace.json` 链接；可用插件改为读取各市场 manifest（兼容新版 Claude CLI）。
+- **全局刷新与无闪烁重载**
+  - 顶栏新增「刷新全部」按钮；文件变更后各面板原地重载数据，不再整块重挂载，tab/滚动/展开状态得以保留。
+  - 所有操作类提示统一改用 Tauri 原生弹窗。
 
 ### v0.2.1
 

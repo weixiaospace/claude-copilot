@@ -1,6 +1,6 @@
 [package]
 name = "claude-copilot-core"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 
 [dependencies]
@@ -11,3 +11,6 @@ serde_json = "1"
 # Package-renamed so `use serde_yaml::…` stays unchanged across the codebase.
 serde_yaml = { package = "serde_norway", version = "0.9" }
 ts-rs = "12"
+
+[dev-dependencies]
+tempfile = "3"
