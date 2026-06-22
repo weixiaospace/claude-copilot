@@ -5,6 +5,7 @@ import { useFsRefresh } from "../lib/useFsRefresh";
 import { X } from "lucide-preact";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { McpServer } from "../types/McpServer";
+import type { McpKeyVal } from "../types/McpKeyVal";
 import { invoke } from "../lib/ipc";
 import { t } from "../lib/i18n";
 import { PanelHeader } from "./PanelHeader";
@@ -47,6 +48,33 @@ function ApprovalBadge({ approval }: { approval: string }) {
   );
 }
 
+/** Labeled block in the detail view. */
+function Field({ label, children }: { label: string; children: any }) {
+  return (
+    <div class="flex flex-col gap-1">
+      <span class="text-xs text-neutral-500">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+/** key=value list with values masked unless `reveal`. */
+function KeyVals({ items, reveal }: { items: McpKeyVal[]; reveal: boolean }) {
+  return (
+    <div class="flex flex-col gap-1 font-mono text-xs">
+      {items.map((kv) => (
+        <div key={kv.key} class="flex gap-2">
+          <span class="shrink-0 text-neutral-500">{kv.key}</span>
+          <span class="text-neutral-400">=</span>
+          <span class="min-w-0 truncate" title={reveal ? kv.value : undefined}>
+            {reveal ? kv.value : "••••••"}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const tokens = (s: string) => s.trim().split(/\s+/).filter(Boolean);
 const lines = (s: string) =>
   s
@@ -68,6 +96,9 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
   const [envText, setEnvText] = useState("");
   const [headersText, setHeadersText] = useState("");
   const [saving, setSaving] = useState(false);
+  // Read-only detail view of a server + whether its secret values are revealed.
+  const [detail, setDetail] = useState<McpServer | null>(null);
+  const [reveal, setReveal] = useState(false);
 
   const key = JSON.stringify(scope);
   const isStdio = transport === "stdio";
@@ -164,7 +195,15 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
                   key={s.name}
                   class="flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800"
                 >
-                  <span class="font-medium">{s.name}</span>
+                  <button
+                    class="font-medium hover:text-accent"
+                    onClick={() => {
+                      setReveal(false);
+                      setDetail(s);
+                    }}
+                  >
+                    {s.name}
+                  </button>
                   <span class="rounded bg-neutral-100 px-1 text-xs text-neutral-500 dark:bg-neutral-800">
                     {s.transport}
                   </span>
@@ -282,6 +321,57 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
             </label>
           )}
         </div>
+      </Modal>
+
+      <Modal open={detail !== null} onClose={() => setDetail(null)} title={detail?.name ?? ""}>
+        {detail && (
+          <div class="flex flex-col gap-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-medium dark:bg-neutral-800">
+                {t(`mcp.source.${detail.source}`)}
+              </span>
+              <span class="rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-500 dark:bg-neutral-800">
+                {detail.transport}
+              </span>
+              {detail.approval && <ApprovalBadge approval={detail.approval} />}
+            </div>
+
+            {detail.transport === "stdio" ? (
+              <Field label={t("mcp.command")}>
+                <code class="block break-all rounded bg-neutral-100 px-2 py-1.5 font-mono text-xs dark:bg-neutral-800">
+                  {[detail.command, ...detail.args].filter(Boolean).join(" ") || "—"}
+                </code>
+              </Field>
+            ) : (
+              <Field label={t("mcp.url")}>
+                <code class="block break-all rounded bg-neutral-100 px-2 py-1.5 font-mono text-xs dark:bg-neutral-800">
+                  {detail.url || "—"}
+                </code>
+              </Field>
+            )}
+
+            {(detail.env.length > 0 || detail.headers.length > 0) && (
+              <div class="flex justify-end">
+                <button
+                  class="text-xs text-neutral-400 hover:text-accent"
+                  onClick={() => setReveal((v) => !v)}
+                >
+                  {reveal ? t("mcp.hideValues") : t("mcp.showValues")}
+                </button>
+              </div>
+            )}
+            {detail.env.length > 0 && (
+              <Field label={t("mcp.envTitle")}>
+                <KeyVals items={detail.env} reveal={reveal} />
+              </Field>
+            )}
+            {detail.headers.length > 0 && (
+              <Field label={t("mcp.headersTitle")}>
+                <KeyVals items={detail.headers} reveal={reveal} />
+              </Field>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );

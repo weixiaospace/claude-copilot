@@ -17,6 +17,14 @@ pub enum McpSource {
     Local,
 }
 
+/// A key/value pair on an MCP server (an env var or an HTTP header).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[ts(export, export_to = "../../src/types/")]
+pub struct McpKeyVal {
+    pub key: String,
+    pub value: String,
+}
+
 /// One configured MCP server.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[ts(export, export_to = "../../src/types/")]
@@ -27,6 +35,12 @@ pub struct McpServer {
     pub transport: String,
     pub url: Option<String>,
     pub command: Option<String>,
+    /// stdio subprocess arguments (after the command).
+    pub args: Vec<String>,
+    /// stdio environment variables. Values may be secret — mask them in the UI.
+    pub env: Vec<McpKeyVal>,
+    /// http/sse request headers. Values may be secret — mask them in the UI.
+    pub headers: Vec<McpKeyVal>,
     pub source: McpSource,
     /// Trust state of a **project** (`.mcp.json`) server: `approved` / `pending`
     /// / `rejected`, derived from the project's enabled/disabled lists in
@@ -59,6 +73,28 @@ pub fn parse_servers(map: &Value, source: McpSource) -> Vec<McpServer> {
         .map(|(name, cfg)| {
             let url = cfg.get("url").and_then(Value::as_str).map(String::from);
             let command = cfg.get("command").and_then(Value::as_str).map(String::from);
+            let args = cfg
+                .get("args")
+                .and_then(Value::as_array)
+                .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                .unwrap_or_default();
+            // Parse `env` / `headers` objects into key/value pairs. A non-string
+            // value (rare) degrades to its JSON text rather than being dropped.
+            let pairs = |field: &str| {
+                cfg.get(field)
+                    .and_then(Value::as_object)
+                    .map(|o| {
+                        o.iter()
+                            .map(|(k, v)| McpKeyVal {
+                                key: k.clone(),
+                                value: v.as_str().map(String::from).unwrap_or_else(|| v.to_string()),
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            };
+            let env = pairs("env");
+            let headers = pairs("headers");
             let transport = cfg
                 .get("type")
                 .and_then(Value::as_str)
@@ -78,6 +114,9 @@ pub fn parse_servers(map: &Value, source: McpSource) -> Vec<McpServer> {
                 transport,
                 url,
                 command,
+                args,
+                env,
+                headers,
                 source,
                 // Filled in by the command layer for project-source servers.
                 approval: None,
@@ -96,8 +135,8 @@ mod tests {
     #[test]
     fn parses_and_infers_transport() {
         let map = json!({
-            "gh": { "type": "sse", "url": "https://example/sse" },
-            "local": { "command": "npx", "args": ["-y", "srv"] },
+            "gh": { "type": "sse", "url": "https://example/sse", "headers": { "Authorization": "Bearer t" } },
+            "local": { "command": "npx", "args": ["-y", "srv"], "env": { "API_KEY": "secret" } },
             "explicit": { "transport": "http", "url": "https://x" }
         });
         let servers = parse_servers(&map, McpSource::User);
@@ -107,10 +146,13 @@ mod tests {
         assert_eq!(gh.transport, "sse");
         assert_eq!(gh.url.as_deref(), Some("https://example/sse"));
         assert_eq!(gh.source, McpSource::User);
+        assert_eq!(gh.headers, vec![McpKeyVal { key: "Authorization".into(), value: "Bearer t".into() }]);
 
         let local = servers.iter().find(|s| s.name == "local").unwrap();
         assert_eq!(local.transport, "stdio"); // inferred from command
         assert_eq!(local.command.as_deref(), Some("npx"));
+        assert_eq!(local.args, vec!["-y".to_string(), "srv".to_string()]);
+        assert_eq!(local.env, vec![McpKeyVal { key: "API_KEY".into(), value: "secret".into() }]);
 
         let explicit = servers.iter().find(|s| s.name == "explicit").unwrap();
         assert_eq!(explicit.transport, "http");
