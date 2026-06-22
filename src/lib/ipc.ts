@@ -6,6 +6,7 @@ import type { FileResource } from "../types/FileResource";
 import type { HookEntry } from "../types/HookEntry";
 import type { McpServer } from "../types/McpServer";
 import type { McpSource } from "../types/McpSource";
+import type { McpHealth } from "../types/McpHealth";
 import type { MemoryInfo } from "../types/MemoryInfo";
 import type { InstalledPlugin } from "../types/InstalledPlugin";
 import type { Marketplace } from "../types/Marketplace";
@@ -72,6 +73,7 @@ export interface Commands {
     result: void;
   };
   remove_mcp: { args: { scope: ScopeRef; name: string; source: McpSource }; result: void };
+  check_mcp_health: { args: { scope: ScopeRef }; result: McpHealth[] };
   memory_info: { args: { projectId: string }; result: MemoryInfo };
   list_memories: { args: { projectId: string }; result: FileResource[] };
   create_memory: { args: { projectId: string; name: string }; result: FileResource };

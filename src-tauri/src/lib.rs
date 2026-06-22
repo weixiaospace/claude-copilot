@@ -57,6 +57,7 @@ pub fn run() {
             commands::mcp::list_mcp,
             commands::mcp::add_mcp,
             commands::mcp::remove_mcp,
+            commands::mcp::check_mcp_health,
             commands::memory::memory_info,
             commands::memory::list_memories,
             commands::memory::create_memory,

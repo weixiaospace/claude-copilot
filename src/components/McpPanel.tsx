@@ -2,7 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { toast } from "../lib/toast";
 import { useFsRefresh } from "../lib/useFsRefresh";
-import { X } from "lucide-preact";
+import { Activity, Loader2, X } from "lucide-preact";
 import type { ScopeRef } from "../types/ScopeRef";
 import type { McpServer } from "../types/McpServer";
 import type { McpKeyVal } from "../types/McpKeyVal";
@@ -75,6 +75,23 @@ function KeyVals({ items, reveal }: { items: McpKeyVal[]; reveal: boolean }) {
   );
 }
 
+/** Connection-health badge (from an on-demand `claude mcp list`). */
+function HealthBadge({ status }: { status: string }) {
+  const tone: Record<string, string> = {
+    connected: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+    needs_auth: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    failed: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+    unknown: "bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400",
+  };
+  const cls = tone[status];
+  if (!cls) return null; // pending is already covered by the approval badge
+  return (
+    <span class={"shrink-0 rounded px-1.5 py-0.5 text-xs font-medium " + cls}>
+      {t(`mcp.health.${status}`)}
+    </span>
+  );
+}
+
 const tokens = (s: string) => s.trim().split(/\s+/).filter(Boolean);
 const lines = (s: string) =>
   s
@@ -99,6 +116,9 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
   // Read-only detail view of a server + whether its secret values are revealed.
   const [detail, setDetail] = useState<McpServer | null>(null);
   const [reveal, setReveal] = useState(false);
+  // On-demand connection health, keyed by server name; `checking` while running.
+  const [health, setHealth] = useState<Record<string, string>>({});
+  const [checking, setChecking] = useState(false);
 
   const key = JSON.stringify(scope);
   const isStdio = transport === "stdio";
@@ -115,10 +135,26 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
 
   useEffect(() => {
     setLoading(true);
+    setHealth({}); // stale across scopes; re-check on demand
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   useFsRefresh(refresh);
+
+  async function checkHealth() {
+    if (checking) return;
+    setChecking(true);
+    try {
+      const list = await invoke("check_mcp_health", { scope });
+      const map: Record<string, string> = {};
+      for (const h of list) map[h.name] = h.status;
+      setHealth(map);
+    } catch (e) {
+      toast.error(String(e));
+    } finally {
+      setChecking(false);
+    }
+  }
 
   function resetForm() {
     setName("");
@@ -175,7 +211,26 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
 
   return (
     <div class="flex h-full flex-col">
-      <PanelHeader onRefresh={() => refresh()} onCreate={() => setCreating(true)} />
+      <PanelHeader
+        actions={
+          servers.length > 0 ? (
+            <button
+              class="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-900 disabled:opacity-50 dark:hover:text-white"
+              disabled={checking}
+              onClick={() => void checkHealth()}
+            >
+              {checking ? (
+                <Loader2 size={13} class="animate-spin" />
+              ) : (
+                <Activity size={13} />
+              )}
+              {t("mcp.checkHealth")}
+            </button>
+          ) : undefined
+        }
+        onRefresh={() => refresh()}
+        onCreate={() => setCreating(true)}
+      />
 
       <div class="flex-1 overflow-auto px-6 pb-3">
         {loading && servers.length === 0 && <Loading />}
@@ -208,6 +263,7 @@ export function McpPanel({ scope }: { scope: ScopeRef }) {
                     {s.transport}
                   </span>
                   {s.approval && <ApprovalBadge approval={s.approval} />}
+                  {health[s.name] && <HealthBadge status={health[s.name]} />}
                   <span class="min-w-0 flex-1 truncate text-xs text-neutral-400" title={s.url ?? s.command ?? ""}>
                     {s.url ?? s.command ?? ""}
                   </span>

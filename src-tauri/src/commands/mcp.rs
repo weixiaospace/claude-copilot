@@ -7,7 +7,7 @@ use std::process::Command;
 
 use serde_json::Value;
 
-use claude_copilot_core::mcp::{self, McpServer, McpSource};
+use claude_copilot_core::mcp::{self, McpHealth, McpServer, McpSource};
 use claude_copilot_core::scopes::ScopeRef;
 
 use crate::claude_cli;
@@ -159,6 +159,34 @@ pub fn remove_mcp(scope: ScopeRef, name: String, source: McpSource) -> Result<()
             source_flag(source).to_string(),
         ],
     )
+}
+
+/// Health-check every configured server via `claude mcp list` (which connects to
+/// each one). On-demand only — it's slow, so the UI calls this from a button,
+/// never on entry. Runs off the UI thread.
+#[tauri::command]
+pub async fn check_mcp_health(scope: ScopeRef) -> Result<Vec<McpHealth>, String> {
+    tauri::async_runtime::spawn_blocking(move || health_blocking(&scope))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn health_blocking(scope: &ScopeRef) -> Result<Vec<McpHealth>, String> {
+    let binary = claude_cli::resolve_claude_path().ok_or_else(|| {
+        "Claude CLI (claude) not found on PATH. Install Claude Code to manage MCP servers."
+            .to_string()
+    })?;
+    let mut cmd = Command::new(&binary);
+    cmd.arg("mcp").arg("list");
+    if let ScopeRef::Project { id } = scope {
+        cmd.current_dir(id);
+    }
+    let output = cmd
+        .output()
+        .map_err(|e| format!("failed to run claude ({}): {e}", binary.display()))?;
+    // `claude mcp list` prints health to stdout even when some servers fail to
+    // connect, so parse stdout regardless of the exit status.
+    Ok(mcp::parse_mcp_health(&String::from_utf8_lossy(&output.stdout)))
 }
 
 #[cfg(test)]

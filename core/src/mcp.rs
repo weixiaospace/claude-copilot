@@ -48,6 +48,50 @@ pub struct McpServer {
     pub approval: Option<String>,
 }
 
+/// Connection health of an MCP server, from `claude mcp list`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[ts(export, export_to = "../../src/types/")]
+pub struct McpHealth {
+    pub name: String,
+    /// `connected` / `needs_auth` / `failed` / `pending` / `unknown`.
+    pub status: String,
+}
+
+/// Parse `claude mcp list` output. Each server line is
+/// `name: <command-or-url> - <status>`. The status is matched by keyword so it
+/// survives wording / glyph (✔/✗) changes across CLI versions; anything
+/// unrecognized becomes `unknown` rather than being dropped.
+pub fn parse_mcp_health(stdout: &str) -> Vec<McpHealth> {
+    let mut out = Vec::new();
+    for line in stdout.lines() {
+        let line = line.trim();
+        // A server line has a `name: ` prefix and a ` - status` suffix.
+        let Some((name, rest)) = line.split_once(": ") else {
+            continue;
+        };
+        let Some((_, raw)) = rest.rsplit_once(" - ") else {
+            continue;
+        };
+        let s = raw.to_lowercase();
+        let status = if s.contains("connected") {
+            "connected"
+        } else if s.contains("auth") {
+            "needs_auth"
+        } else if s.contains("pending") {
+            "pending"
+        } else if s.contains("failed") || s.contains("error") || raw.contains('✗') || raw.contains('✘') {
+            "failed"
+        } else {
+            "unknown"
+        };
+        out.push(McpHealth {
+            name: name.trim().to_string(),
+            status: status.to_string(),
+        });
+    }
+    out
+}
+
 /// Trust state of a project `.mcp.json` server given the project's
 /// `enabledMcpjsonServers` / `disabledMcpjsonServers` name lists. A server the
 /// user hasn't explicitly approved or rejected is `pending` — Claude Code won't
@@ -162,6 +206,23 @@ mod tests {
     fn non_object_yields_nothing() {
         assert!(parse_servers(&Value::Null, McpSource::Project).is_empty());
         assert!(parse_servers(&json!([]), McpSource::Local).is_empty());
+    }
+
+    #[test]
+    fn parses_health_lines() {
+        // Real `claude mcp list` output shape (✔/glyphs vary; matched by keyword).
+        let out = "Checking MCP server health…\n\n\
+            gdrive: https://drive/mcp - ! Needs authentication\n\
+            playwright: npx @playwright/mcp@latest - ✔ Connected\n\
+            broken: my-cmd --flag - ✗ Failed to connect\n\
+            local: ./srv - ⏸ Pending approval\n";
+        let h = parse_mcp_health(out);
+        assert_eq!(h.len(), 4);
+        let by = |n: &str| h.iter().find(|x| x.name == n).unwrap().status.as_str();
+        assert_eq!(by("gdrive"), "needs_auth");
+        assert_eq!(by("playwright"), "connected");
+        assert_eq!(by("broken"), "failed");
+        assert_eq!(by("local"), "pending");
     }
 
     #[test]
